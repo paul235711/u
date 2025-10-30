@@ -1,13 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Plus } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { GasTypeBadge } from './GasTypeBadge';
 import type { GasType } from '@/components/synoptics/hierarchy/gas-indicators';
 
@@ -37,7 +36,6 @@ export function EquipmentCreateDialog({
   hierarchyData,
   onSuccess 
 }: EquipmentCreateDialogProps) {
-  const queryClient = useQueryClient();
   const [equipmentType, setEquipmentType] = useState<'valve' | 'source' | 'fitting'>('valve');
   const [name, setName] = useState('');
   const [gasType, setGasType] = useState<GasType>('oxygen');
@@ -46,70 +44,15 @@ export function EquipmentCreateDialog({
   const [zoneId, setZoneId] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
-  // Quick create states
-  const [isCreatingBuilding, setIsCreatingBuilding] = useState(false);
-  const [isCreatingFloor, setIsCreatingFloor] = useState(false);
-  const [isCreatingZone, setIsCreatingZone] = useState(false);
-  const [newItemName, setNewItemName] = useState('');
 
   const selectedBuilding = hierarchyData?.buildings?.find((b: any) => b.id === buildingId);
   const floors = selectedBuilding?.floors || [];
   const selectedFloor = floors.find((f: any) => f.id === floorId);
   const zones = selectedFloor?.zones || [];
 
-  const handleQuickCreate = async (type: 'building' | 'floor' | 'zone') => {
-    if (!newItemName.trim()) return;
-    
-    try {
-      let endpoint = '';
-      let body: any = { name: newItemName.trim() };
-      
-      if (type === 'building') {
-        endpoint = '/api/synoptics/buildings';
-        body.siteId = siteId;
-      } else if (type === 'floor' && buildingId) {
-        endpoint = '/api/synoptics/floors';
-        body.buildingId = buildingId;
-        body.number = 0; // Default floor number
-      } else if (type === 'zone' && floorId) {
-        endpoint = '/api/synoptics/zones';
-        body.floorId = floorId;
-      }
-      
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      
-      if (!response.ok) throw new Error('Failed to create');
-      
-      const created = await response.json();
-      
-      // Select the newly created item
-      if (type === 'building') {
-        setBuildingId(created.id);
-        setIsCreatingBuilding(false);
-      } else if (type === 'floor') {
-        setFloorId(created.id);
-        setIsCreatingFloor(false);
-      } else if (type === 'zone') {
-        setZoneId(created.id);
-        setIsCreatingZone(false);
-      }
-      
-      setNewItemName('');
-      // Invalidate hierarchy to refresh the select options
-      queryClient.invalidateQueries({ queryKey: ['site-hierarchy', siteId] });
-    } catch (err) {
-      console.error('Failed to create:', err);
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !buildingId) return;
+    if (!name.trim()) return;
 
     setIsSubmitting(true);
     setError(null);
@@ -153,10 +96,12 @@ export function EquipmentCreateDialog({
         organizationId,
         nodeType: equipmentType,
         elementId: element.id,
-        buildingId: buildingId || null,
-        floorId: floorId || null,
-        zoneId: zoneId || null,
       };
+      
+      // Add location only if provided
+      if (buildingId) nodeData.buildingId = buildingId;
+      if (floorId) nodeData.floorId = floorId;
+      if (zoneId) nodeData.zoneId = zoneId;
 
       const nodeResponse = await fetch('/api/synoptics/nodes', {
         method: 'POST',
@@ -231,8 +176,8 @@ export function EquipmentCreateDialog({
                     key={gas.value}
                     type="button"
                     onClick={() => setGasType(gas.value)}
-                    className={`transition-all ${
-                      gasType === gas.value ? 'ring-2 ring-blue-500 ring-offset-2' : 'opacity-50'
+                    className={`transition-all rounded ${
+                      gasType === gas.value ? 'ring-2 ring-blue-500 ring-offset-1' : 'opacity-50 hover:opacity-75'
                     }`}
                   >
                     <GasTypeBadge gasType={gas.value} />
@@ -242,37 +187,17 @@ export function EquipmentCreateDialog({
             </div>
 
             <div>
-              <div className="flex items-center justify-between mb-1">
-                <Label htmlFor="building">Building *</Label>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 px-2"
-                  onClick={() => setIsCreatingBuilding(!isCreatingBuilding)}
-                >
-                  <Plus className="h-3 w-3" />
-                </Button>
-              </div>
-              {isCreatingBuilding ? (
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="New building name"
-                    value={newItemName}
-                    onChange={(e) => setNewItemName(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleQuickCreate('building')}
-                  />
-                  <Button type="button" size="sm" onClick={() => handleQuickCreate('building')}>
-                    Add
-                  </Button>
-                  <Button type="button" size="sm" variant="outline" onClick={() => setIsCreatingBuilding(false)}>
-                    Cancel
-                  </Button>
-                </div>
-              ) : (
-                <Select value={buildingId} onValueChange={setBuildingId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select building" />
+              <Label className="text-sm text-gray-600">Location (Optional)</Label>
+              <div className="grid grid-cols-3 gap-3 mt-2">
+              <div>
+                <Label htmlFor="building" className="text-xs">Building</Label>
+                <Select value={buildingId || undefined} onValueChange={(value) => {
+                  setBuildingId(value);
+                  setFloorId('');
+                  setZoneId('');
+                }}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="—" />
                   </SelectTrigger>
                   <SelectContent>
                     {hierarchyData?.buildings?.map((building: any) => (
@@ -282,102 +207,52 @@ export function EquipmentCreateDialog({
                     ))}
                   </SelectContent>
                 </Select>
-              )}
+              </div>
+
+              <div>
+                <Label htmlFor="floor" className="text-xs">Floor</Label>
+                <Select 
+                  value={floorId || undefined} 
+                  onValueChange={(value) => {
+                    setFloorId(value);
+                    setZoneId('');
+                  }}
+                  disabled={!buildingId}
+                >
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="—" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {floors.map((floor: any) => (
+                      <SelectItem key={floor.id} value={floor.id}>
+                        {floor.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="zone" className="text-xs">Zone</Label>
+                <Select 
+                  value={zoneId || undefined} 
+                  onValueChange={setZoneId}
+                  disabled={!floorId}
+                >
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="—" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {zones.map((zone: any) => (
+                      <SelectItem key={zone.id} value={zone.id}>
+                        {zone.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              </div>
             </div>
-
-            {buildingId && (
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <Label htmlFor="floor">Floor (Optional)</Label>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 px-2"
-                    onClick={() => setIsCreatingFloor(!isCreatingFloor)}
-                  >
-                    <Plus className="h-3 w-3" />
-                  </Button>
-                </div>
-                {isCreatingFloor ? (
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="New floor name"
-                      value={newItemName}
-                      onChange={(e) => setNewItemName(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleQuickCreate('floor')}
-                    />
-                    <Button type="button" size="sm" onClick={() => handleQuickCreate('floor')}>
-                      Add
-                    </Button>
-                    <Button type="button" size="sm" variant="outline" onClick={() => setIsCreatingFloor(false)}>
-                      Cancel
-                    </Button>
-                  </div>
-                ) : (
-                  <Select value={floorId} onValueChange={setFloorId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select floor" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">None</SelectItem>
-                      {floors.map((floor: any) => (
-                        <SelectItem key={floor.id} value={floor.id}>
-                          {floor.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              </div>
-            )}
-
-            {floorId && (
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <Label htmlFor="zone">Zone (Optional)</Label>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 px-2"
-                    onClick={() => setIsCreatingZone(!isCreatingZone)}
-                  >
-                    <Plus className="h-3 w-3" />
-                  </Button>
-                </div>
-                {isCreatingZone ? (
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="New zone name"
-                      value={newItemName}
-                      onChange={(e) => setNewItemName(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleQuickCreate('zone')}
-                    />
-                    <Button type="button" size="sm" onClick={() => handleQuickCreate('zone')}>
-                      Add
-                    </Button>
-                    <Button type="button" size="sm" variant="outline" onClick={() => setIsCreatingZone(false)}>
-                      Cancel
-                    </Button>
-                  </div>
-                ) : (
-                  <Select value={zoneId} onValueChange={setZoneId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select zone" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">None</SelectItem>
-                      {zones.map((zone: any) => (
-                        <SelectItem key={zone.id} value={zone.id}>
-                          {zone.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              </div>
-            )}
           </div>
           
           <DialogFooter>
@@ -389,7 +264,7 @@ export function EquipmentCreateDialog({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={isSubmitting || !name.trim() || !buildingId}>
+            <Button type="submit" disabled={isSubmitting || !name.trim()}>
               {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Create Equipment
             </Button>
