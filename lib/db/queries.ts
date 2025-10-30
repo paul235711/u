@@ -1,6 +1,6 @@
 import { desc, and, eq, isNull } from 'drizzle-orm';
 import { db } from './drizzle';
-import { activityLogs, teamMembers, teams, users } from './schema';
+import { activityLogs, teamMembers, teams, users, invitations } from './schema';
 import { cookies } from 'next/headers';
 import { verifyToken } from '@/lib/auth/session';
 
@@ -68,11 +68,27 @@ export async function getUserWithTeam(userId: number) {
   const result = await db
     .select({
       user: users,
-      teamId: teamMembers.teamId
+      teamId: teamMembers.teamId,
+      role: teamMembers.role
     })
     .from(users)
     .leftJoin(teamMembers, eq(users.id, teamMembers.userId))
     .where(eq(users.id, userId))
+    .limit(1);
+
+  return result[0];
+}
+
+export async function getUserWithTeamRole(userId: number, teamId: number) {
+  const result = await db
+    .select({
+      user: users,
+      teamId: teamMembers.teamId,
+      role: teamMembers.role
+    })
+    .from(users)
+    .leftJoin(teamMembers, eq(users.id, teamMembers.userId))
+    .where(and(eq(users.id, userId), eq(teamMembers.teamId, teamId)))
     .limit(1);
 
   return result[0];
@@ -105,6 +121,33 @@ export async function getTeamForUser() {
     return null;
   }
 
+  // If user has a lastActiveTeamId, try to use it
+  if (user.lastActiveTeamId) {
+    const withActive = await db.query.teamMembers.findFirst({
+      where: and(eq(teamMembers.userId, user.id), eq(teamMembers.teamId, user.lastActiveTeamId)),
+      with: {
+        team: {
+          with: {
+            teamMembers: {
+              with: {
+                user: {
+                  columns: { id: true, name: true, email: true }
+                }
+              }
+            },
+            invitations: {
+              where: eq(invitations.status, 'pending')
+            }
+          }
+        }
+      }
+    });
+    if (withActive?.team) {
+      return withActive.team;
+    }
+  }
+
+  // Fallback to first membership
   const result = await db.query.teamMembers.findFirst({
     where: eq(teamMembers.userId, user.id),
     with: {
@@ -113,13 +156,12 @@ export async function getTeamForUser() {
           teamMembers: {
             with: {
               user: {
-                columns: {
-                  id: true,
-                  name: true,
-                  email: true
-                }
+                columns: { id: true, name: true, email: true }
               }
             }
+          },
+          invitations: {
+            where: eq(invitations.status, 'pending')
           }
         }
       }

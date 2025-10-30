@@ -10,6 +10,10 @@ export const checkoutAction = withTeam(async (formData, team) => {
 });
 
 export const customerPortalAction = withTeam(async (_, team) => {
+  if (!team.stripeCustomerId || !team.stripeProductId) {
+    redirect('/pricing');
+  }
+
   const portalSession = await createCustomerPortalSession(team);
   redirect(portalSession.url);
 });

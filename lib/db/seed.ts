@@ -70,7 +70,14 @@ async function seed() {
     role: 'owner',
   });
 
-  await createStripeProducts();
+  console.log('Team and team member created.');
+  console.log('\n✅ Database seeded successfully!');
+  console.log('\nYou can now sign in with:');
+  console.log('  Email: test@test.com');
+  console.log('  Password: admin123\n');
+
+  // Skip Stripe products for now - can be created later
+  // await createStripeProducts();
 }
 
 seed()

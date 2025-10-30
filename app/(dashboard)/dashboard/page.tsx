@@ -10,10 +10,10 @@ import {
   CardFooter
 } from '@/components/ui/card';
 import { customerPortalAction } from '@/lib/payments/actions';
-import { useActionState } from 'react';
+import { useActionState, useState } from 'react';
 import { TeamDataWithMembers, User } from '@/lib/db/schema';
-import { removeTeamMember, inviteTeamMember } from '@/app/(login)/actions';
-import useSWR from 'swr';
+import { removeTeamMember, inviteTeamMember, updateTeamName, updateTeamMemberRole, cancelInvitation, acceptInvitation } from '@/app/(login)/actions';
+import useSWR, { useSWRConfig } from 'swr';
 import { Suspense } from 'react';
 import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -37,8 +37,179 @@ function SubscriptionSkeleton() {
   );
 }
 
+function UserInvitations() {
+  const { data: invitations, mutate } = useSWR<any[]>('/api/invitations', fetcher);
+  const { mutate: globalMutate } = useSWRConfig();
+  const [state, action, pending] = useActionState<ActionState, FormData>(acceptInvitation, {});
+
+  const list = Array.isArray(invitations) ? invitations : [];
+
+  if (list.length === 0) {
+    return null;
+  }
+
+  return (
+    <Card className="mb-8">
+      <CardHeader>
+        <CardTitle>Your Invitations</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <ul className="space-y-3">
+          {list.map((inv) => (
+            <li key={inv.id} className="flex items-center justify-between">
+              <div>
+                <p className="font-medium">{inv.teamName || `Team #${inv.teamId}`}</p>
+                <p className="text-sm text-muted-foreground capitalize">{inv.role}</p>
+              </div>
+              <form
+                action={async (fd) => {
+                  const res = (await action(fd)) as any;
+                  await mutate();
+                  // Also refresh team info so UI reflects switch
+                  try { await globalMutate('/api/team'); } catch {}
+                  return res;
+                }}
+              >
+                <input type="hidden" name="invitationId" value={inv.id} />
+                <Button type="submit" size="sm" disabled={pending}>
+                  {pending ? 'Joining...' : 'Accept'}
+                </Button>
+              </form>
+            </li>
+          ))}
+        </ul>
+        {state?.error && <p className="text-red-500 mt-2">{state.error}</p>}
+        {state?.success && <p className="text-green-500 mt-2">{state.success}</p>}
+      </CardContent>
+    </Card>
+  );
+}
+
+function InvitationsList() {
+  const { data: teamData, mutate } = useSWR<TeamDataWithMembers>('/api/team', fetcher);
+  const { data: user } = useSWR<User>('/api/user', fetcher);
+  const isOwner = user?.role === 'owner';
+  const [cancelState, cancelAction, cancelPending] = useActionState<ActionState, FormData>(cancelInvitation, {});
+
+  const pendingInvites = teamData?.invitations?.filter((i: any) => i.status === 'pending') || [];
+  if (!pendingInvites.length) {
+    return null;
+  }
+
+  return (
+    <Card className="mb-8">
+      <CardHeader>
+        <CardTitle>Pending Invitations</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <ul className="space-y-3">
+          {pendingInvites.map((inv: any) => (
+            <li key={inv.id} className="flex items-center justify-between">
+              <div>
+                <p className="font-medium">{inv.email}</p>
+                <p className="text-sm text-muted-foreground capitalize">{inv.role}</p>
+              </div>
+              <form
+                action={async (fd) => {
+                  const res = (await cancelAction(fd)) as any;
+                  await mutate();
+                  return res;
+                }}
+              >
+                <input type="hidden" name="invitationId" value={inv.id} />
+                <Button type="submit" size="sm" variant="outline" disabled={!isOwner || cancelPending}>
+                  {cancelPending ? 'Canceling...' : 'Cancel'}
+                </Button>
+              </form>
+            </li>
+          ))}
+        </ul>
+        {cancelState?.error && <p className="text-red-500 mt-2">{cancelState.error}</p>}
+        {cancelState?.success && <p className="text-green-500 mt-2">{cancelState.success}</p>}
+      </CardContent>
+    </Card>
+  );
+}
+
+function TeamNameForm() {
+  const { data: teamData, mutate } = useSWR<TeamDataWithMembers>('/api/team', fetcher);
+  const { data: user } = useSWR<User>('/api/user', fetcher);
+  const isOwner = user?.role === 'owner';
+  const [state, action, pending] = useActionState<ActionState, FormData>(updateTeamName, {});
+  const [editing, setEditing] = useState(false);
+  const [localName, setLocalName] = useState<string>('');
+  return (
+    <Card className="mb-8">
+      <CardHeader>
+        <CardTitle>Team Name</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {!isOwner && (
+          <p className="text-sm">{teamData?.name || '—'}</p>
+        )}
+        {isOwner && !editing && (
+          <div className="flex items-center justify-between">
+            <p className="text-sm">{teamData?.name || '—'}</p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setLocalName(teamData?.name || '');
+                setEditing(true);
+              }}
+            >
+              Edit
+            </Button>
+          </div>
+        )}
+        {isOwner && editing && (
+          <form
+            action={async (fd) => {
+              const res = (await action(fd)) as any;
+              await mutate();
+              if (!(res as any)?.error) {
+                setEditing(false);
+              }
+              return res;
+            }}
+            className="flex items-center space-x-2"
+          >
+            <input type="hidden" name="name" value={localName} />
+            <Input
+              value={localName}
+              onChange={(e) => setLocalName(e.target.value)}
+              placeholder="Enter team name"
+              disabled={pending}
+            />
+            <Button type="submit" disabled={pending}>
+              {pending ? 'Saving...' : 'Save'}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setEditing(false)}
+              disabled={pending}
+            >
+              Cancel
+            </Button>
+          </form>
+        )}
+        {state?.error && <p className="text-red-500 mt-2">{state.error}</p>}
+        {state?.success && <p className="text-green-500 mt-2">{state.success}</p>}
+      </CardContent>
+    </Card>
+  );
+}
+
 function ManageSubscription() {
   const { data: teamData } = useSWR<TeamDataWithMembers>('/api/team', fetcher);
+  const { data: user } = useSWR<User>('/api/user', fetcher);
+  const isOwner = user?.role === 'owner';
+
+  if (!isOwner) {
+    return null;
+  }
 
   return (
     <Card className="mb-8">
@@ -94,11 +265,14 @@ function TeamMembersSkeleton() {
 }
 
 function TeamMembers() {
-  const { data: teamData } = useSWR<TeamDataWithMembers>('/api/team', fetcher);
+  const { data: teamData, mutate } = useSWR<TeamDataWithMembers>('/api/team', fetcher);
+  const { data: user } = useSWR<User>('/api/user', fetcher);
+  const isOwner = user?.role === 'owner';
   const [removeState, removeAction, isRemovePending] = useActionState<
     ActionState,
     FormData
   >(removeTeamMember, {});
+  const [roleState, roleAction, rolePending] = useActionState<ActionState, FormData>(updateTeamMemberRole, {});
 
   const getUserDisplayName = (user: Pick<User, 'id' | 'name' | 'email'>) => {
     return user.name || user.email || 'Unknown User';
@@ -153,24 +327,60 @@ function TeamMembers() {
                   </p>
                 </div>
               </div>
-              {index > 1 ? (
-                <form action={removeAction}>
+              <div className="flex items-center space-x-2">
+                <form
+                  action={async (fd) => {
+                    const res = (await roleAction(fd)) as any;
+                    await mutate();
+                    return res;
+                  }}
+                  className="flex items-center space-x-2"
+                >
                   <input type="hidden" name="memberId" value={member.id} />
-                  <Button
-                    type="submit"
-                    variant="outline"
-                    size="sm"
-                    disabled={isRemovePending}
+                  <select
+                    name="role"
+                    defaultValue={member.role}
+                    disabled={!isOwner || rolePending}
+                    className="border rounded px-2 py-1 text-sm"
                   >
-                    {isRemovePending ? 'Removing...' : 'Remove'}
+                    <option value="member">member</option>
+                    <option value="owner">owner</option>
+                  </select>
+                  <Button type="submit" size="sm" variant="outline" disabled={!isOwner || rolePending}>
+                    {rolePending ? 'Saving...' : 'Update'}
                   </Button>
                 </form>
-              ) : null}
+                {index > 1 ? (
+                  <form
+                    action={async (fd) => {
+                      const res = (await removeAction(fd)) as any;
+                      await mutate();
+                      return res;
+                    }}
+                  >
+                    <input type="hidden" name="memberId" value={member.id} />
+                    <Button
+                      type="submit"
+                      variant="outline"
+                      size="sm"
+                      disabled={isRemovePending || !isOwner}
+                    >
+                      {isRemovePending ? 'Removing...' : 'Remove'}
+                    </Button>
+                  </form>
+                ) : null}
+              </div>
             </li>
           ))}
         </ul>
         {removeState?.error && (
           <p className="text-red-500 mt-4">{removeState.error}</p>
+        )}
+        {roleState?.error && (
+          <p className="text-red-500 mt-2">{roleState.error}</p>
+        )}
+        {roleState?.success && (
+          <p className="text-green-500 mt-2">{roleState.success}</p>
         )}
       </CardContent>
     </Card>
@@ -194,6 +404,10 @@ function InviteTeamMember() {
     ActionState,
     FormData
   >(inviteTeamMember, {});
+
+  if (!isOwner) {
+    return null;
+  }
 
   return (
     <Card>
@@ -273,11 +487,21 @@ export default function SettingsPage() {
   return (
     <section className="flex-1 p-4 lg:p-8">
       <h1 className="text-lg lg:text-2xl font-medium mb-6">Team Settings</h1>
+      <Suspense fallback={null}>
+        <UserInvitations />
+      </Suspense>
+
+      <Suspense fallback={null}>
+        <TeamNameForm />
+      </Suspense>
       <Suspense fallback={<SubscriptionSkeleton />}>
         <ManageSubscription />
       </Suspense>
       <Suspense fallback={<TeamMembersSkeleton />}>
         <TeamMembers />
+      </Suspense>
+      <Suspense fallback={null}>
+        <InvitationsList />
       </Suspense>
       <Suspense fallback={<InviteTeamMemberSkeleton />}>
         <InviteTeamMember />

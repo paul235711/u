@@ -48,7 +48,7 @@ export async function createCheckoutSession({
 
 export async function createCustomerPortalSession(team: Team) {
   if (!team.stripeCustomerId || !team.stripeProductId) {
-    redirect('/pricing');
+    throw new Error('Team does not have required Stripe data');
   }
 
   let configuration: Stripe.BillingPortal.Configuration;

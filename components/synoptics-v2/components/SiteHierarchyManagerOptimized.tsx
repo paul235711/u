@@ -1,0 +1,644 @@
+/**
+ * Optimized Site Hierarchy Manager with React Query + Zustand
+ * Much smoother UX with automatic caching and optimistic updates
+ */
+
+'use client';
+
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { 
+  Building2, Plus, Layers, Box, ChevronDown, ChevronRight, 
+  Loader2, Edit
+} from 'lucide-react';
+import { useHierarchyStore } from '../stores/hierarchy-store';
+import { Badge } from '@/components/ui/badge';
+import { useState } from 'react';
+import { ValveBadge } from '@/components/synoptics/hierarchy/valve-badge';
+import { useValveCounts } from '../hooks/use-valve-counts';
+import { useLayoutCounts } from '../hooks/use-layout-counts';
+import { useGasIndicators } from '../hooks/use-gas-indicators';
+import { LayoutBadge } from './LayoutBadge';
+import { AllGasIndicators } from './AllGasIndicators';
+import { QuickLayoutDialog } from './QuickLayoutDialog';
+import { QuickValveDialog } from './QuickValveDialog';
+import { LayoutSelectorDialog } from './LayoutSelectorDialog';
+import { ValveListDialog } from './ValveListDialog';
+
+interface SiteHierarchyManagerOptimizedProps {
+  siteData: any;
+  siteId: string;
+  organizationId: string;
+  layouts: any[];
+}
+
+export function SiteHierarchyManagerOptimized({ siteData, siteId, organizationId, layouts }: SiteHierarchyManagerOptimizedProps) {
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  
+  // Load real valve counts
+  const { data: valveCounts = {} } = useValveCounts(organizationId, siteId);
+  
+  // Load real layout counts
+  const { data: layoutCounts = {} } = useLayoutCounts(siteId, layouts);
+  
+  // Load gas indicators per location
+  const { data: gasData = { byLocation: {}, allSiteGases: [] } } = useGasIndicators(organizationId, siteId);
+  const gasIndicators = gasData.byLocation;
+  const allSiteGases = gasData.allSiteGases;
+  
+  // Dialog states
+  const [layoutDialog, setLayoutDialog] = useState<{ open: boolean; floorId?: string }>({ open: false });
+  const [valveDialog, setValveDialog] = useState<{ 
+    open: boolean; 
+    locationId?: string; 
+    locationType?: 'building' | 'floor' | 'zone';
+  }>({ open: false });
+  const [layoutSelectorDialog, setLayoutSelectorDialog] = useState<{
+    open: boolean;
+    locationId?: string;
+    locationType?: 'site' | 'floor';
+  }>({ open: false });
+  const [valveListDialog, setValveListDialog] = useState<{
+    open: boolean;
+    locationId?: string;
+    locationType?: 'building' | 'floor' | 'zone';
+  }>({ open: false });
+  
+  // Zustand store for UI state (instant, no re-renders)
+  const {
+    expandedBuildings,
+    expandedFloors,
+    isEditMode,
+    addingBuilding,
+    addingFloorTo,
+    addingZoneTo,
+    toggleBuilding,
+    toggleFloor,
+    setEditMode,
+    setAddingBuilding,
+    setAddingFloorTo,
+    setAddingZoneTo,
+    cancelAllForms,
+  } = useHierarchyStore();
+
+
+  // React Query for data fetching (automatic caching!)
+  const { data: hierarchyData, isLoading } = useQuery({
+    queryKey: ['site-hierarchy', siteId],
+    queryFn: async () => {
+      const response = await fetch(`/api/synoptics/sites/${siteId}/hierarchy`);
+      if (!response.ok) throw new Error('Failed to load hierarchy');
+      return response.json();
+    },
+    initialData: siteData,
+    staleTime: 30000, // Cache for 30 seconds
+  });
+
+
+  // Mutations with optimistic updates
+  const createBuildingMutation = useMutation({
+    mutationFn: async (name: string) => {
+      const response = await fetch('/api/synoptics/buildings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, siteId }),
+      });
+      if (!response.ok) throw new Error('Failed to create building');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['site-hierarchy', siteId] });
+      setAddingBuilding(false);
+      router.refresh();
+    },
+  });
+
+  const createFloorMutation = useMutation({
+    mutationFn: async ({ number, name, buildingId }: { number: number; name?: string; buildingId: string }) => {
+      // Generate ordinal name if not provided
+      const getOrdinalName = (num: number) => {
+        const absNum = Math.abs(num);
+        if (absNum === 0) return 'Ground Floor';
+        if (num < 0) return `Basement ${absNum}`;
+        
+        const suffixes = ['th', 'st', 'nd', 'rd'];
+        const v = absNum % 100;
+        const suffix = suffixes[(v - 20) % 10] || suffixes[v] || suffixes[0];
+        
+        return `${absNum}${suffix} Floor`;
+      };
+      
+      const response = await fetch('/api/synoptics/floors', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          floorNumber: number,
+          name: name || getOrdinalName(number),
+          buildingId 
+        }),
+      });
+      if (!response.ok) throw new Error('Failed to create floor');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['site-hierarchy', siteId] });
+      setAddingFloorTo(null);
+      router.refresh();
+    },
+  });
+
+  const createZoneMutation = useMutation({
+    mutationFn: async ({ name, floorId }: { name: string; floorId: string }) => {
+      const response = await fetch('/api/synoptics/zones', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, floorId }),
+      });
+      if (!response.ok) throw new Error('Failed to create zone');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['site-hierarchy', siteId] });
+      setAddingZoneTo(null);
+      router.refresh();
+    },
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Header with Site Info */}
+      <div className="border rounded-lg p-4 bg-gradient-to-r from-blue-50 to-white">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Building2 className="h-6 w-6 text-blue-600" />
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl font-semibold">{siteData.name}</h2>
+              <LayoutBadge
+                count={layoutCounts[siteId] || 0}
+                size="md"
+                showAddButton={isEditMode}
+                onClick={() => {
+                  if ((layoutCounts[siteId] || 0) > 0) {
+                    setLayoutSelectorDialog({ open: true, locationId: siteId, locationType: 'site' });
+                  }
+                }}
+                onAdd={() => setLayoutDialog({ open: true })}
+              />
+            </div>
+            <p className="text-sm text-gray-600">
+              {hierarchyData?.buildings?.length || 0} building{hierarchyData?.buildings?.length !== 1 ? 's' : ''}
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setEditMode(!isEditMode)}
+            >
+              <Edit className="h-4 w-4 mr-2" />
+              {isEditMode ? 'Done' : 'Edit'}
+            </Button>
+            
+            {isEditMode && (
+              <Button
+                size="sm"
+                onClick={() => setAddingBuilding(true)}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Building
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Add Building Form */}
+      {addingBuilding && (
+        <InlineForm
+          placeholder="Building name"
+          onSubmit={(name) => createBuildingMutation.mutate(name)}
+          onCancel={() => setAddingBuilding(false)}
+          isSubmitting={createBuildingMutation.isPending}
+        />
+      )}
+
+      {/* Buildings List */}
+      <div className="space-y-3">
+        {hierarchyData?.buildings?.map((building: any) => {
+          const isExpanded = expandedBuildings.has(building.id);
+          
+          return (
+            <div key={building.id} className="border rounded-lg bg-white">
+              {/* Building Header */}
+              <div className="p-4 flex items-center justify-between">
+                <button
+                  onClick={() => toggleBuilding(building.id)}
+                  className="flex items-center gap-3 flex-1 text-left hover:bg-gray-50 -m-2 p-2 rounded"
+                >
+                  {isExpanded ? (
+                    <ChevronDown className="h-5 w-5 text-gray-400" />
+                  ) : (
+                    <ChevronRight className="h-5 w-5 text-gray-400" />
+                  )}
+                  <Building2 className="h-5 w-5 text-purple-600" />
+                  <div>
+                    <h3 className="font-semibold">{building.name}</h3>
+                    <p className="text-sm text-gray-500">
+                      {building.floors?.length || 0} floor{building.floors?.length !== 1 ? 's' : ''}
+                    </p>
+                  </div>
+                </button>
+                
+                <div className="flex items-center gap-3">
+                  {/* Valves and Gases */}
+                  <div className="flex items-center gap-2">
+                    <ValveBadge
+                      locationId={building.id}
+                      count={valveCounts[building.id] || 0}
+                      isLoading={false}
+                      onClick={() => {
+                        if ((valveCounts[building.id] || 0) > 0) {
+                          setValveListDialog({ open: true, locationId: building.id, locationType: 'building' });
+                        }
+                      }}
+                    />
+                    {isEditMode && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2"
+                        title="Add valve"
+                        onClick={() => setValveDialog({ 
+                          open: true, 
+                          locationId: building.id, 
+                          locationType: 'building' 
+                        })}
+                      >
+                        <Plus className="h-3 w-3" />
+                      </Button>
+                    )}
+                    <AllGasIndicators
+                      activeGases={gasIndicators[building.id] || []}
+                      allSiteGases={allSiteGases}
+                      size="md"
+                    />
+                  </div>
+                  
+                  {isEditMode && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setAddingFloorTo(building.id);
+                        toggleBuilding(building.id); // Auto-expand
+                      }}
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      Add Floor
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {/* Expanded Content */}
+              {isExpanded && (
+                <div className="px-4 pb-4 space-y-2">
+                  {/* Add Floor Form */}
+                  {addingFloorTo === building.id && (
+                    <div className="ml-8">
+                      <FloorInlineForm
+                        onSubmit={(data) => createFloorMutation.mutate({ ...data, buildingId: building.id })}
+                        onCancel={() => setAddingFloorTo(null)}
+                        isSubmitting={createFloorMutation.isPending}
+                      />
+                    </div>
+                  )}
+
+                  {/* Floors - sorted by number descending (highest floor at top, negative floors at bottom) */}
+                  {building.floors
+                    ?.sort((a: any, b: any) => {
+                      const numA = a.number || 0;
+                      const numB = b.number || 0;
+                      // Sort descending: 5, 4, 3, 2, 1, 0, -1, -2 (highest at top)
+                      return numB - numA;
+                    })
+                    .map((floor: any) => {
+                    const isFloorExpanded = expandedFloors.has(floor.id);
+                    
+                    return (
+                      <div key={floor.id} className="ml-8 border rounded-lg">
+                        <div className="p-3 flex items-center justify-between">
+                          <div className="flex items-center gap-2 flex-1">
+                            <button
+                              onClick={() => toggleFloor(floor.id)}
+                              className="flex items-center gap-2 hover:bg-gray-50 -m-1 p-1 rounded"
+                            >
+                              {isFloorExpanded ? (
+                                <ChevronDown className="h-4 w-4 text-gray-400" />
+                              ) : (
+                                <ChevronRight className="h-4 w-4 text-gray-400" />
+                              )}
+                              <Layers className="h-4 w-4 text-green-600" />
+                              <span className="font-medium text-sm">{floor.name}</span>
+                            </button>
+                            <LayoutBadge
+                              count={layoutCounts[floor.id] || 0}
+                              size="sm"
+                              showAddButton={isEditMode}
+                              onClick={() => {
+                                if ((layoutCounts[floor.id] || 0) > 0) {
+                                  setLayoutSelectorDialog({ open: true, locationId: floor.id, locationType: 'floor' });
+                                }
+                              }}
+                              onAdd={() => setLayoutDialog({ open: true, floorId: floor.id })}
+                            />
+                            <Badge variant="secondary" className="text-xs">
+                              {floor.zones?.length || 0} zone{floor.zones?.length !== 1 ? 's' : ''}
+                            </Badge>
+                          </div>
+                          
+                          <div className="flex items-center gap-2">
+                            {/* Valves and Gases */}
+                            <div className="flex items-center gap-1.5">
+                              <ValveBadge
+                                locationId={floor.id}
+                                count={valveCounts[floor.id] || 0}
+                                size="sm"
+                                isLoading={false}
+                                onClick={() => {
+                                  if ((valveCounts[floor.id] || 0) > 0) {
+                                    setValveListDialog({ open: true, locationId: floor.id, locationType: 'floor' });
+                                  }
+                                }}
+                              />
+                              {isEditMode && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-5 px-1.5"
+                                  title="Add valve"
+                                  onClick={() => setValveDialog({ 
+                                    open: true, 
+                                    locationId: floor.id, 
+                                    locationType: 'floor' 
+                                  })}
+                                >
+                                  <Plus className="h-3 w-3" />
+                                </Button>
+                              )}
+                              <AllGasIndicators
+                                activeGases={gasIndicators[floor.id] || []}
+                                allSiteGases={allSiteGases}
+                                size="sm"
+                              />
+                            </div>
+                            
+                            {isEditMode && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setAddingZoneTo(floor.id);
+                                  toggleFloor(floor.id); // Auto-expand
+                                }}
+                              >
+                                <Plus className="h-3 w-3 mr-1" />
+                                Add Zone
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Zones */}
+                        {isFloorExpanded && (
+                          <div className="px-3 pb-3 space-y-2">
+                            {/* Add Zone Form */}
+                            {addingZoneTo === floor.id && (
+                              <div className="ml-6">
+                                <InlineForm
+                                  placeholder="Zone name"
+                                  onSubmit={(name) => createZoneMutation.mutate({ name, floorId: floor.id })}
+                                  onCancel={() => setAddingZoneTo(null)}
+                                  isSubmitting={createZoneMutation.isPending}
+                                />
+                              </div>
+                            )}
+
+                            {floor.zones?.map((zone: any) => (
+                              <div key={zone.id} className="ml-6 p-3 border rounded bg-white">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <Box className="h-4 w-4 text-orange-600" />
+                                    <span className="text-sm font-medium">{zone.name}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5">
+                                    <ValveBadge
+                                      locationId={zone.id}
+                                      count={valveCounts[zone.id] || 0}
+                                      size="sm"
+                                      isLoading={false}
+                                      onClick={() => {
+                                        if ((valveCounts[zone.id] || 0) > 0) {
+                                          setValveListDialog({ open: true, locationId: zone.id, locationType: 'zone' });
+                                        }
+                                      }}
+                                    />
+                                    {isEditMode && (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-5 px-1.5"
+                                        title="Add valve"
+                                        onClick={() => setValveDialog({ 
+                                          open: true, 
+                                          locationId: zone.id, 
+                                          locationType: 'zone' 
+                                        })}
+                                      >
+                                        <Plus className="h-3 w-3" />
+                                      </Button>
+                                    )}
+                                    <AllGasIndicators
+                                      activeGases={gasIndicators[zone.id] || []}
+                                      allSiteGases={allSiteGases}
+                                      size="sm"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Quick Dialogs */}
+      <QuickLayoutDialog
+        open={layoutDialog.open}
+        onOpenChange={(open) => setLayoutDialog({ open, floorId: open ? layoutDialog.floorId : undefined })}
+        siteId={siteId}
+        organizationId={organizationId}
+        floorId={layoutDialog.floorId}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['layout-counts', siteId] });
+          queryClient.invalidateQueries({ queryKey: ['site-hierarchy', siteId] });
+          // Small delay to ensure DB write completes before refresh
+          setTimeout(() => {
+            router.refresh();
+          }, 100);
+        }}
+      />
+
+      {valveDialog.locationId && valveDialog.locationType && (
+        <QuickValveDialog
+          open={valveDialog.open}
+          onOpenChange={(open) => setValveDialog({ open, locationId: open ? valveDialog.locationId : undefined, locationType: open ? valveDialog.locationType : undefined })}
+          locationId={valveDialog.locationId}
+          locationType={valveDialog.locationType}
+          siteId={siteId}
+          organizationId={organizationId}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['valve-counts', organizationId, siteId] });
+            queryClient.invalidateQueries({ queryKey: ['gas-indicators', organizationId, siteId] });
+            router.refresh();
+          }}
+        />
+      )}
+
+      {/* Selector Dialogs */}
+      {layoutSelectorDialog.locationId && layoutSelectorDialog.locationType && (
+        <LayoutSelectorDialog
+          open={layoutSelectorDialog.open}
+          onOpenChange={(open) => setLayoutSelectorDialog({ open })}
+          layouts={layouts}
+          locationId={layoutSelectorDialog.locationId}
+          locationType={layoutSelectorDialog.locationType}
+        />
+      )}
+
+      {valveListDialog.locationId && valveListDialog.locationType && (
+        <ValveListDialog
+          open={valveListDialog.open}
+          onOpenChange={(open) => setValveListDialog({ open })}
+          locationId={valveListDialog.locationId}
+          locationType={valveListDialog.locationType}
+          organizationId={organizationId}
+          siteId={siteId}
+        />
+      )}
+    </div>
+  );
+}
+
+// Simple inline form component
+function InlineForm({ 
+  placeholder, 
+  onSubmit, 
+  onCancel, 
+  isSubmitting 
+}: { 
+  placeholder: string; 
+  onSubmit: (value: string) => void; 
+  onCancel: () => void; 
+  isSubmitting: boolean;
+}) {
+  const [value, setValue] = useState('');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (value.trim()) {
+      onSubmit(value.trim());
+      setValue('');
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="flex gap-2">
+      <Input
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        placeholder={placeholder}
+        disabled={isSubmitting}
+        autoFocus
+      />
+      <Button type="submit" size="sm" disabled={isSubmitting || !value.trim()}>
+        {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Add'}
+      </Button>
+      <Button type="button" size="sm" variant="outline" onClick={onCancel} disabled={isSubmitting}>
+        Cancel
+      </Button>
+    </form>
+  );
+}
+
+// Floor inline form with number (required) and name (optional)
+function FloorInlineForm({ 
+  onSubmit, 
+  onCancel, 
+  isSubmitting 
+}: { 
+  onSubmit: (data: { number: number; name?: string }) => void; 
+  onCancel: () => void; 
+  isSubmitting: boolean;
+}) {
+  const [number, setNumber] = useState('');
+  const [name, setName] = useState('');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const floorNumber = parseInt(number);
+    if (!isNaN(floorNumber)) {
+      onSubmit({ 
+        number: floorNumber, 
+        name: name.trim() || undefined 
+      });
+      setNumber('');
+      setName('');
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="flex gap-2">
+      <Input
+        type="number"
+        value={number}
+        onChange={(e) => setNumber(e.target.value)}
+        placeholder="Floor number *"
+        disabled={isSubmitting}
+        autoFocus
+        className="w-32"
+      />
+      <Input
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder="Floor name (optional)"
+        disabled={isSubmitting}
+        className="flex-1"
+      />
+      <Button type="submit" size="sm" disabled={isSubmitting || !number.trim()}>
+        {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Add'}
+      </Button>
+      <Button type="button" size="sm" variant="outline" onClick={onCancel} disabled={isSubmitting}>
+        Cancel
+      </Button>
+    </form>
+  );
+}
