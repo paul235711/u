@@ -324,13 +324,8 @@ export async function deleteFitting(fittingId: string) {
 // LAYOUT QUERIES
 // =====================================================
 
-export async function getLayoutsByOrganizationId(organizationId: string) {
-  return db
-    .select()
-    .from(layouts)
-    .where(eq(layouts.organizationId, organizationId))
-    .orderBy(desc(layouts.createdAt));
-}
+// Deprecated: Use getLayoutsBySiteId instead
+// Layouts are now site-specific
 
 export async function getLayoutsBySiteId(siteId: string) {
   return db
@@ -379,11 +374,11 @@ export async function deleteLayout(layoutId: string) {
 // NODE QUERIES
 // =====================================================
 
-export async function getNodesByOrganizationId(organizationId: string) {
+export async function getNodesBySiteId(siteId: string) {
   return db
     .select()
     .from(nodes)
-    .where(eq(nodes.organizationId, organizationId))
+    .where(eq(nodes.siteId, siteId))
     .orderBy(desc(nodes.createdAt));
 }
 
@@ -623,8 +618,8 @@ export async function getNodeWithElementData(nodeId: string) {
   };
 }
 
-export async function getNodesWithElementDataByOrganizationId(organizationId: string) {
-  const nodes = await getNodesByOrganizationId(organizationId);
+export async function getNodesWithElementDataBySiteId(siteId: string) {
+  const nodes = await getNodesBySiteId(siteId);
   
   const nodesWithData = await Promise.all(
     nodes.map(async (node: any) => {
@@ -659,11 +654,15 @@ export async function getLayoutWithNodesAndConnections(layoutId: string) {
   const validNodes = nodesData.filter((node: any) => node !== null);
   const nodeIdSet = new Set(validNodes.map((n: any) => n.id));
 
+  // Get organizationId from site (layouts are now linked to sites)
+  const site = await getSiteById(layout.siteId);
+  if (!site) return null;
+
   // Get all connections for the organization
   const allConnections = await db
     .select()
     .from(connections)
-    .where(eq(connections.organizationId, layout.organizationId));
+    .where(eq(connections.organizationId, site.organizationId));
 
   // Filter connections to only include those between nodes in THIS layout
   const connectionsData = allConnections.filter(

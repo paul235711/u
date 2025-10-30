@@ -39,7 +39,6 @@ export function SiteDetailClient({ siteData, siteId, organizationId, layouts }: 
       <TabsContent value="equipment" className="mt-6">
         <EquipmentManager 
           siteId={siteId}
-          organizationId={organizationId}
         />
       </TabsContent>
     </Tabs>

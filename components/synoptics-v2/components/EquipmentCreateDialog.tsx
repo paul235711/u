@@ -14,7 +14,6 @@ interface EquipmentCreateDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   siteId: string;
-  organizationId: string;
   hierarchyData: any;
   onSuccess: () => void;
 }
@@ -32,7 +31,6 @@ export function EquipmentCreateDialog({
   open, 
   onOpenChange, 
   siteId,
-  organizationId,
   hierarchyData,
   onSuccess 
 }: EquipmentCreateDialogProps) {
@@ -58,6 +56,14 @@ export function EquipmentCreateDialog({
     setError(null);
 
     try {
+      // Step 0: Fetch site to get organizationId (elements still need it)
+      const siteResponse = await fetch(`/api/synoptics/sites/${siteId}`);
+      if (!siteResponse.ok) {
+        throw new Error('Failed to fetch site information');
+      }
+      const site = await siteResponse.json();
+      const organizationId = site.organizationId;
+
       // Step 1: Create element (valve, source, or fitting)
       let elementEndpoint = '';
       let elementData: any = {
@@ -91,9 +97,9 @@ export function EquipmentCreateDialog({
 
       const element = await elementResponse.json();
 
-      // Step 2: Create node
+      // Step 2: Create node (now linked to site)
       const nodeData: any = {
-        organizationId,
+        siteId,
         nodeType: equipmentType,
         elementId: element.id,
       };

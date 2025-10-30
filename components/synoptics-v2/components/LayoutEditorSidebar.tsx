@@ -8,7 +8,6 @@
 import { GasLegend } from '@/components/synoptics/gas-legend';
 import { NetworkStatsPanel } from '@/components/synoptics/network-stats-panel';
 import { NetworkFilterPanel, createDefaultFilters } from '@/components/synoptics/network-filter-panel';
-import { ElementPropertiesPanel } from './ElementPropertiesPanel';
 import { useUIStore } from '../stores/ui-store';
 import { useState } from 'react';
 
@@ -38,16 +37,8 @@ export function LayoutEditorSidebar({
 
   return (
     <>
-      {/* Properties Panel */}
-      {selectedElementId && !isLocked && (
-        <ElementPropertiesPanel
-          organizationId={organizationId}
-          layoutId={layoutId}
-          onUpdate={() => {/* Handled by React Query */}}
-          onDelete={() => {/* Handled by React Query */}}
-        />
-      )}
-
+      {/* Properties now handled by EquipmentBankEnhanced */}
+      
       {/* Stats Panel */}
       {showStats && (
         <NetworkStatsPanel

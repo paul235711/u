@@ -37,7 +37,7 @@ interface HierarchyState {
   // Actions - Expand/Collapse
   toggleBuilding: (id: string) => void;
   toggleFloor: (id: string) => void;
-  expandAll: () => void;
+  expandAll: (buildingIds: string[], floorIds: string[]) => void;
   collapseAll: () => void;
   
   // Actions - Edit Mode
@@ -103,9 +103,12 @@ export const useHierarchyStore = create<HierarchyState>()(
           return { expandedFloors: newSet };
         }, false, 'toggleFloor'),
 
-      expandAll: () =>
+      expandAll: (buildingIds, floorIds) =>
         set(
-          { expandedBuildings: new Set(), expandedFloors: new Set() },
+          {
+            expandedBuildings: new Set(buildingIds),
+            expandedFloors: new Set(floorIds),
+          },
           false,
           'expandAll'
         ),

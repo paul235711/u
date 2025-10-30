@@ -76,7 +76,7 @@ export function QuickValveDialog({
 
       // Step 2: Create the node linking the valve to the location
       const nodeData: any = {
-        organizationId,
+        siteId,
         nodeType: 'valve',
         elementId: valve.id,
       };

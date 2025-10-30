@@ -1,12 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUser } from '@/lib/db/queries';
-import { updateSource, deleteSource } from '@/lib/db/synoptics-queries';
+import { getSourceById, updateSource, deleteSource } from '@/lib/db/synoptics-queries';
 import { z } from 'zod';
 
 const updateSchema = z.object({
   name: z.string().min(1).optional(),
   gasType: z.string().min(1).optional(),
 });
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ sourceId: string }> }
+) {
+  try {
+    const user = await getUser();
+    const { sourceId } = await params;
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const source = await getSourceById(sourceId);
+
+    if (!source) {
+      return NextResponse.json({ error: 'Source not found' }, { status: 404 });
+    }
+
+    return NextResponse.json(source);
+  } catch (error) {
+    console.error('Error fetching source:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
 
 export async function PUT(
   request: NextRequest,

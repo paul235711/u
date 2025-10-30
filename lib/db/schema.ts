@@ -252,10 +252,9 @@ export const fittings = pgTable('fittings', {
 // Layouts
 export const layouts = pgTable('layouts', {
   id: uuid('id').defaultRandom().primaryKey(),
-  organizationId: uuid('organization_id')
+  siteId: uuid('site_id')
     .notNull()
-    .references(() => organizations.id, { onDelete: 'cascade' }),
-  siteId: uuid('site_id').references(() => sites.id, { onDelete: 'set null' }),
+    .references(() => sites.id, { onDelete: 'cascade' }),
   floorId: uuid('floor_id').references(() => floors.id, { onDelete: 'set null' }),
   name: text('name').notNull(),
   layoutType: layoutTypeEnum('layout_type').notNull(),
@@ -267,9 +266,9 @@ export const layouts = pgTable('layouts', {
 // Nodes
 export const nodes = pgTable('nodes', {
   id: uuid('id').defaultRandom().primaryKey(),
-  organizationId: uuid('organization_id')
+  siteId: uuid('site_id')
     .notNull()
-    .references(() => organizations.id, { onDelete: 'cascade' }),
+    .references(() => sites.id, { onDelete: 'cascade' }),
   nodeType: nodeTypeEnum('node_type').notNull(),
   elementId: uuid('element_id').notNull(),
   buildingId: uuid('building_id').references(() => buildings.id, { onDelete: 'set null' }),
@@ -372,9 +371,9 @@ export const zonesRelations = relations(zones, ({ one }: any) => ({
 }));
 
 export const nodesRelations = relations(nodes, ({ one, many }: any) => ({
-  organization: one(organizations, {
-    fields: [nodes.organizationId],
-    references: [organizations.id],
+  site: one(sites, {
+    fields: [nodes.siteId],
+    references: [sites.id],
   }),
   building: one(buildings, {
     fields: [nodes.buildingId],

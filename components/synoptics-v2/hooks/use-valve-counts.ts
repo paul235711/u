@@ -9,14 +9,14 @@ interface ValveCounts {
   [locationId: string]: number;
 }
 
-export function useValveCounts(organizationId: string, siteId: string) {
+export function useValveCounts(siteId: string) {
   return useQuery({
-    queryKey: ['valve-counts', organizationId, siteId],
+    queryKey: ['valve-counts', siteId],
     queryFn: async () => {
-      if (!organizationId) return {};
+      if (!siteId) return {};
 
-      // Fetch all nodes for the organization filtered by site
-      const response = await fetch(`/api/synoptics/nodes?organizationId=${organizationId}&siteId=${siteId}`);
+      // Fetch all nodes for the site
+      const response = await fetch(`/api/synoptics/nodes?siteId=${siteId}`);
       if (!response.ok) return {};
       
       const nodes = await response.json();
@@ -47,6 +47,6 @@ export function useValveCounts(organizationId: string, siteId: string) {
       return counts;
     },
     staleTime: 30000, // Cache for 30 seconds
-    enabled: !!organizationId && !!siteId,
+    enabled: !!siteId,
   });
 }

@@ -104,7 +104,6 @@ export function LayoutEditorContainer({
           <LayoutEditorCanvas
             layout={layout}
             layoutId={layoutId}
-            organizationId={organizationId}
           />
 
           {/* Sidebar panels */}

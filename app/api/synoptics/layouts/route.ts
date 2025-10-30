@@ -4,8 +4,7 @@ import { createLayout } from '@/lib/db/synoptics-queries';
 import { z } from 'zod';
 
 const layoutSchema = z.object({
-  organizationId: z.string().uuid(),
-  siteId: z.string().uuid().nullable().optional(),
+  siteId: z.string().uuid(),
   floorId: z.string().uuid().nullable().optional(),
   name: z.string().min(1),
   layoutType: z.enum(['site', 'floor', 'zone']),

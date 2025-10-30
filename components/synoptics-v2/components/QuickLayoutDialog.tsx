@@ -11,7 +11,6 @@ interface QuickLayoutDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   siteId: string;
-  organizationId: string;
   floorId?: string;
   onSuccess: () => void;
 }
@@ -24,7 +23,6 @@ export function QuickLayoutDialog({
   open, 
   onOpenChange, 
   siteId,
-  organizationId,
   floorId,
   onSuccess 
 }: QuickLayoutDialogProps) {
@@ -45,7 +43,6 @@ export function QuickLayoutDialog({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: name.trim(),
-          organizationId,
           siteId,
           floorId: floorId || null,
           layoutType: floorId ? 'floor' : 'site',

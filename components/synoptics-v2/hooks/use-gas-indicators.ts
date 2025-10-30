@@ -13,14 +13,14 @@ interface GasIndicators {
   allSiteGases: GasType[];
 }
 
-export function useGasIndicators(organizationId: string, siteId: string) {
+export function useGasIndicators(siteId: string) {
   return useQuery({
-    queryKey: ['gas-indicators', organizationId, siteId],
+    queryKey: ['gas-indicators', siteId],
     queryFn: async () => {
-      if (!organizationId) return { byLocation: {}, allSiteGases: [] };
+      if (!siteId) return { byLocation: {}, allSiteGases: [] };
 
-      // Fetch all nodes for the organization filtered by site
-      const response = await fetch(`/api/synoptics/nodes?organizationId=${organizationId}&siteId=${siteId}`);
+      // Fetch all nodes for the site
+      const response = await fetch(`/api/synoptics/nodes?siteId=${siteId}`);
       if (!response.ok) return { byLocation: {}, allSiteGases: [] };
       
       const nodes = await response.json();
@@ -73,6 +73,6 @@ export function useGasIndicators(organizationId: string, siteId: string) {
       };
     },
     staleTime: 30000, // Cache for 30 seconds
-    enabled: !!organizationId && !!siteId,
+    enabled: !!siteId,
   });
 }

@@ -8,7 +8,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
-  Droplet, Zap, Box, Filter, Search, Edit, Trash2, Plus
+  Droplet, Zap, Box, Filter, Search, Edit, Trash2, Plus, ArrowRight, MapPin
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,14 +29,14 @@ import { EquipmentLocationBreadcrumb } from './EquipmentLocationBreadcrumb';
 import { EquipmentEditDialog } from './EquipmentEditDialog';
 import { EquipmentDeleteDialog } from './EquipmentDeleteDialog';
 import { EquipmentCreateDialog } from './EquipmentCreateDialog';
+import { LayoutSelectorForEquipment } from './LayoutSelectorForEquipment';
 import type { GasType } from '@/components/synoptics/hierarchy/gas-indicators';
 
 interface EquipmentManagerProps {
   siteId: string;
-  organizationId: string;
 }
 
-export function EquipmentManager({ siteId, organizationId }: EquipmentManagerProps) {
+export function EquipmentManager({ siteId }: EquipmentManagerProps) {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState<'all' | 'source' | 'valve' | 'fitting'>('all');
@@ -45,21 +45,22 @@ export function EquipmentManager({ siteId, organizationId }: EquipmentManagerPro
   const [editingNode, setEditingNode] = useState<any>(null);
   const [deletingNodes, setDeletingNodes] = useState<string[]>([]);
   const [isCreating, setIsCreating] = useState(false);
+  const [layoutSelectorNode, setLayoutSelectorNode] = useState<string | null>(null);
 
-  // Fetch all nodes for the site (filtered by siteId)
+  // Fetch all nodes for the site
   const { data: allNodes = [], isLoading } = useQuery({
-    queryKey: ['site-equipment', siteId, organizationId],
+    queryKey: ['site-equipment', siteId],
     queryFn: async () => {
-      if (!organizationId) {
-        console.warn('No organizationId provided');
+      if (!siteId) {
+        console.warn('No siteId provided');
         return [];
       }
-      // Filter by siteId to only get equipment for this specific site
-      const response = await fetch(`/api/synoptics/nodes?organizationId=${organizationId}&siteId=${siteId}`);
+      // Nodes are now directly linked to site
+      const response = await fetch(`/api/synoptics/nodes?siteId=${siteId}`);
       if (!response.ok) throw new Error('Failed to fetch equipment');
       return response.json();
     },
-    enabled: !!organizationId && !!siteId,
+    enabled: !!siteId,
   });
 
   // Fetch hierarchy to verify nodes belong to this site
@@ -108,7 +109,47 @@ export function EquipmentManager({ siteId, organizationId }: EquipmentManagerPro
       return found;
     }
     
-    return false;
+    // If no location specified, equipment belongs to site directly
+    return true;
+  });
+
+  // Fetch node positions (to know which layouts each equipment is in)
+  const { data: nodePositions = {} } = useQuery({
+    queryKey: ['node-positions', nodes.map((n: any) => n.id)],
+    queryFn: async () => {
+      const positions: Record<string, any[]> = {};
+      
+      await Promise.all(
+        nodes.map(async (node: any) => {
+          try {
+            const response = await fetch(`/api/synoptics/node-positions?nodeId=${node.id}`);
+            if (response.ok) {
+              positions[node.id] = await response.json();
+            } else {
+              positions[node.id] = [];
+            }
+          } catch (error) {
+            console.error(`Failed to fetch positions for ${node.id}:`, error);
+            positions[node.id] = [];
+          }
+        })
+      );
+      
+      return positions;
+    },
+    enabled: nodes.length > 0,
+  });
+
+  // Fetch layouts to show layout names
+  const { data: layouts = [] } = useQuery({
+    queryKey: ['site-layouts', siteId],
+    queryFn: async () => {
+      const response = await fetch(`/api/synoptics/sites/${siteId}`);
+      if (!response.ok) return [];
+      const site = await response.json();
+      return site.layouts || [];
+    },
+    enabled: !!siteId,
   });
 
   // Fetch les détails des équipements (valves, sources, fittings)
@@ -164,10 +205,10 @@ export function EquipmentManager({ siteId, organizationId }: EquipmentManagerPro
     fittings: nodes.filter((n: any) => n.nodeType === 'fitting').length,
   };
 
-  if (!organizationId) {
+  if (!siteId) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500">No organization found. Please ensure you have access to this site.</div>
+        <div className="text-gray-500">No site found. Please select a site first.</div>
       </div>
     );
   }
@@ -291,13 +332,14 @@ export function EquipmentManager({ siteId, organizationId }: EquipmentManagerPro
                   <TableHead>Nom</TableHead>
                   <TableHead>Gaz</TableHead>
                   <TableHead>Localisation</TableHead>
+                  <TableHead>Dans Layout</TableHead>
                   {isEditMode && <TableHead className="text-right">Actions</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredNodes.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={isEditMode ? 6 : 5} className="text-center text-gray-500 py-8">
+                    <TableCell colSpan={isEditMode ? 7 : 6} className="text-center text-gray-500 py-8">
                       Aucun équipement trouvé
                     </TableCell>
                   </TableRow>
@@ -343,22 +385,71 @@ export function EquipmentManager({ siteId, organizationId }: EquipmentManagerPro
                         <TableCell>
                           <EquipmentLocationBreadcrumb node={node} siteId={siteId} />
                         </TableCell>
+                        <TableCell>
+                          {nodePositions[node.id]?.length > 0 ? (
+                            <div className="flex flex-wrap gap-1">
+                              {nodePositions[node.id].map((pos: any) => {
+                                const layout = layouts.find((l: any) => l.id === pos.layoutId);
+                                return (
+                                  <Badge key={`${node.id}-${pos.layoutId}`} variant="secondary" className="text-xs">
+                                    {layout?.name || 'Unknown'}
+                                  </Badge>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <span className="text-gray-400 text-sm">—</span>
+                          )}
+                        </TableCell>
                         {isEditMode && (
                           <TableCell className="text-right">
-                            <div className="flex justify-end gap-2">
+                            <div className="flex justify-end gap-1">
+                              {/* Add to layout */}
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => setLayoutSelectorNode(node.id)}
+                                title="Ajouter à un layout"
+                              >
+                                <Plus className="h-4 w-4" />
+                              </Button>
+                              
+                              {/* Go to layout (if in any) */}
+                              {nodePositions[node.id]?.[0] && (
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={() => {
+                                    const layoutId = nodePositions[node.id][0].layoutId;
+                                    window.location.href = `/synoptics/layouts/${layoutId}`;
+                                  }}
+                                  title="Aller au layout"
+                                >
+                                  <ArrowRight className="h-4 w-4 text-blue-600" />
+                                </Button>
+                              )}
+                              
+                              {/* Edit equipment */}
                               <Button 
                                 variant="ghost" 
                                 size="sm"
                                 onClick={() => setEditingNode({ ...node, details })}
+                                title="Modifier l'équipement"
                               >
                                 <Edit className="h-4 w-4" />
                               </Button>
+                              
+                              {/* Delete equipment (disabled if in any layout) */}
                               <Button 
                                 variant="ghost" 
                                 size="sm"
                                 onClick={() => setDeletingNodes([node.id])}
+                                disabled={nodePositions[node.id]?.length > 0}
+                                title={nodePositions[node.id]?.length > 0 
+                                  ? "Retirer du layout d'abord" 
+                                  : "Supprimer l'équipement"}
                               >
-                                <Trash2 className="h-4 w-4 text-red-600" />
+                                <Trash2 className={`h-4 w-4 ${nodePositions[node.id]?.length > 0 ? 'text-gray-300' : 'text-red-600'}`} />
                               </Button>
                             </div>
                           </TableCell>
@@ -380,7 +471,7 @@ export function EquipmentManager({ siteId, organizationId }: EquipmentManagerPro
           onOpenChange={(open) => !open && setEditingNode(null)}
           node={editingNode}
           onSuccess={() => {
-            queryClient.invalidateQueries({ queryKey: ['site-equipment', siteId, organizationId] });
+            queryClient.invalidateQueries({ queryKey: ['site-equipment', siteId] });
             queryClient.invalidateQueries({ queryKey: ['equipment-details'] });
           }}
         />
@@ -393,7 +484,7 @@ export function EquipmentManager({ siteId, organizationId }: EquipmentManagerPro
         nodeIds={deletingNodes}
         nodes={nodes}
         onSuccess={() => {
-          queryClient.invalidateQueries({ queryKey: ['site-equipment', siteId, organizationId] });
+          queryClient.invalidateQueries({ queryKey: ['site-equipment', siteId] });
           setSelectedNodes(new Set());
         }}
       />
@@ -403,14 +494,28 @@ export function EquipmentManager({ siteId, organizationId }: EquipmentManagerPro
         open={isCreating}
         onOpenChange={setIsCreating}
         siteId={siteId}
-        organizationId={organizationId}
         hierarchyData={hierarchyData}
         onSuccess={() => {
-          queryClient.invalidateQueries({ queryKey: ['site-equipment', siteId, organizationId] });
+          queryClient.invalidateQueries({ queryKey: ['site-equipment', siteId] });
           queryClient.invalidateQueries({ queryKey: ['equipment-details'] });
           queryClient.invalidateQueries({ queryKey: ['site-hierarchy', siteId] });
         }}
       />
+
+      {/* Layout Selector Dialog */}
+      {layoutSelectorNode && (
+        <LayoutSelectorForEquipment
+          open={true}
+          onOpenChange={(open) => !open && setLayoutSelectorNode(null)}
+          nodeId={layoutSelectorNode}
+          layouts={layouts}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['node-positions'] });
+            queryClient.invalidateQueries({ queryKey: ['layout'] });
+            setLayoutSelectorNode(null);
+          }}
+        />
+      )}
     </div>
   );
 }

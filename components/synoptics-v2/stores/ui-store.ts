@@ -6,6 +6,13 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 
+type ElementType = 'source' | 'valve' | 'fitting';
+
+interface QuickAddContext {
+  elementType: ElementType;
+  position: { x: number; y: number };
+}
+
 interface UIState {
   // Editor state
   isLocked: boolean;
@@ -31,7 +38,8 @@ interface UIState {
     quickAdd: boolean;
     deleteConfirm: boolean;
   };
-  
+  quickAddContext: QuickAddContext | null;
+
   // Actions
   toggleLock: () => void;
   setLocked: (locked: boolean) => void;
@@ -41,6 +49,8 @@ interface UIState {
   selectElement: (id: string | null) => void;
   toggleDialog: (dialog: keyof UIState['dialogs']) => void;
   setDialog: (dialog: keyof UIState['dialogs'], open: boolean) => void;
+  openQuickAddDialog: (context: QuickAddContext) => void;
+  closeQuickAddDialog: () => void;
   reset: () => void;
 }
 
@@ -69,6 +79,7 @@ export const useUIStore = create<UIState>()(
       panels: initialPanels,
       selectedElementId: null,
       dialogs: initialDialogs,
+      quickAddContext: null,
 
       // Actions
       toggleLock: () =>
@@ -116,11 +127,35 @@ export const useUIStore = create<UIState>()(
 
       setDialog: (dialog, open) =>
         set(
-          (state) => ({
-            dialogs: { ...state.dialogs, [dialog]: open },
-          }),
+          (state) => {
+            const nextDialogs = { ...state.dialogs, [dialog]: open };
+            if (dialog === 'quickAdd' && !open) {
+              return { dialogs: nextDialogs, quickAddContext: null };
+            }
+            return { dialogs: nextDialogs };
+          },
           false,
           `setDialog/${dialog}`
+        ),
+
+      openQuickAddDialog: (context) =>
+        set(
+          (state) => ({
+            dialogs: { ...state.dialogs, quickAdd: true },
+            quickAddContext: context,
+          }),
+          false,
+          'openQuickAddDialog'
+        ),
+
+      closeQuickAddDialog: () =>
+        set(
+          (state) => ({
+            dialogs: { ...state.dialogs, quickAdd: false },
+            quickAddContext: null,
+          }),
+          false,
+          'closeQuickAddDialog'
         ),
 
       reset: () =>
@@ -131,6 +166,7 @@ export const useUIStore = create<UIState>()(
             panels: initialPanels,
             selectedElementId: null,
             dialogs: initialDialogs,
+            quickAddContext: null,
           },
           false,
           'reset'

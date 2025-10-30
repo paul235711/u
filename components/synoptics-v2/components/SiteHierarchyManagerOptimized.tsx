@@ -39,13 +39,13 @@ export function SiteHierarchyManagerOptimized({ siteData, siteId, organizationId
   const queryClient = useQueryClient();
   
   // Load real valve counts
-  const { data: valveCounts = {} } = useValveCounts(organizationId, siteId);
+  const { data: valveCounts = {} } = useValveCounts(siteId);
   
   // Load real layout counts
   const { data: layoutCounts = {} } = useLayoutCounts(siteId, layouts);
   
   // Load gas indicators per location
-  const { data: gasData = { byLocation: {}, allSiteGases: [] } } = useGasIndicators(organizationId, siteId);
+  const { data: gasData = { byLocation: {}, allSiteGases: [] } } = useGasIndicators(siteId);
   const gasIndicators = gasData.byLocation;
   const allSiteGases = gasData.allSiteGases;
   
@@ -339,19 +339,23 @@ export function SiteHierarchyManagerOptimized({ siteData, siteId, organizationId
                     return (
                       <div key={floor.id} className="ml-8 border rounded-lg">
                         <div className="p-3 flex items-center justify-between">
-                          <div className="flex items-center gap-2 flex-1">
-                            <button
-                              onClick={() => toggleFloor(floor.id)}
-                              className="flex items-center gap-2 hover:bg-gray-50 -m-1 p-1 rounded"
-                            >
-                              {isFloorExpanded ? (
-                                <ChevronDown className="h-4 w-4 text-gray-400" />
-                              ) : (
-                                <ChevronRight className="h-4 w-4 text-gray-400" />
-                              )}
-                              <Layers className="h-4 w-4 text-green-600" />
-                              <span className="font-medium text-sm">{floor.name}</span>
-                            </button>
+                          <button
+                            onClick={() => toggleFloor(floor.id)}
+                            className="flex items-center gap-2 hover:bg-gray-50 -m-1 p-1 rounded flex-1 text-left"
+                          >
+                            {isFloorExpanded ? (
+                              <ChevronDown className="h-4 w-4 text-gray-400" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4 text-gray-400" />
+                            )}
+                            <Layers className="h-4 w-4 text-green-600" />
+                            <span className="font-medium text-sm">{floor.name}</span>
+                            <Badge variant="secondary" className="text-xs ml-2">
+                              {floor.zones?.length || 0} zone{floor.zones?.length !== 1 ? 's' : ''}
+                            </Badge>
+                          </button>
+                          
+                          <div className="flex items-center gap-2">
                             <LayoutBadge
                               count={layoutCounts[floor.id] || 0}
                               size="sm"
@@ -363,12 +367,7 @@ export function SiteHierarchyManagerOptimized({ siteData, siteId, organizationId
                               }}
                               onAdd={() => setLayoutDialog({ open: true, floorId: floor.id })}
                             />
-                            <Badge variant="secondary" className="text-xs">
-                              {floor.zones?.length || 0} zone{floor.zones?.length !== 1 ? 's' : ''}
-                            </Badge>
-                          </div>
-                          
-                          <div className="flex items-center gap-2">
+                            
                             {/* Valves and Gases */}
                             <div className="flex items-center gap-1.5">
                               <ValveBadge
@@ -495,7 +494,6 @@ export function SiteHierarchyManagerOptimized({ siteData, siteId, organizationId
         open={layoutDialog.open}
         onOpenChange={(open) => setLayoutDialog({ open, floorId: open ? layoutDialog.floorId : undefined })}
         siteId={siteId}
-        organizationId={organizationId}
         floorId={layoutDialog.floorId}
         onSuccess={() => {
           queryClient.invalidateQueries({ queryKey: ['layout-counts', siteId] });
