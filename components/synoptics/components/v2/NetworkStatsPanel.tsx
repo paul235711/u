@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { AlertCircle, CheckCircle, Info, TrendingUp, Network, Layers } from 'lucide-react';
-import { calculateNetworkStats, validateNetwork, type NetworkNode, type NetworkConnection } from './shared/network-utils';
+import { calculateNetworkStats, validateNetwork, type NetworkNode, type NetworkConnection } from '../../shared/network-utils';
 
 interface NetworkStatsPanelProps {
   nodes: NetworkNode[];

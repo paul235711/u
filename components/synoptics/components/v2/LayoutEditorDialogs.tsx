@@ -5,7 +5,7 @@
 
 'use client';
 
-import { QuickAddDialog } from '@/components/synoptics/quick-add-dialog';
+import { QuickAddDialog } from './QuickAddDialog';
 import { ConfirmationDialog } from '@/components/synoptics/shared/confirmation-dialog';
 import { useUIStore } from '../../stores/ui-store';
 

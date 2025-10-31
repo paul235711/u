@@ -16,10 +16,11 @@ import {
 import { useHierarchyStore } from '../../stores/hierarchy-store';
 import { Badge } from '@/components/ui/badge';
 import { useState } from 'react';
-import { ValveBadge } from '@/components/synoptics/hierarchy/valve-badge';
-import { useValveCounts } from '../../hooks/use-valve-counts';
+import type { SiteData } from './hierarchy/types';
 import { useLayoutCounts } from '../../hooks/use-layout-counts';
 import { useGasIndicators } from '../../hooks/use-gas-indicators';
+import { useValveCounts } from '../../hooks/use-valve-counts';
+import { ValveBadge } from './hierarchy/valve-badge';
 import { LayoutBadge } from './LayoutBadge';
 import { AllGasIndicators } from './AllGasIndicators';
 import { QuickLayoutDialog } from './QuickLayoutDialog';

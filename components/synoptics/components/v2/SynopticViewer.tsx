@@ -20,9 +20,9 @@ import '@xyflow/react/dist/style.css';
 import { SourceNode } from './nodes/source-node';
 import { ValveNode } from './nodes/valve-node';
 import { FittingNode } from './nodes/fitting-node';
-import { CustomEdge } from './custom-edge';
+import { CustomEdge } from '../../custom-edge';
 
-interface EnhancedSynopticViewerProps {
+interface SynopticViewerProps {
   nodes: any[];
   connections: any[];
   onNodeClick?: (node: Node) => void;
@@ -49,7 +49,7 @@ function getGasColor(gasType: string): string {
   return GAS_COLORS[normalized as keyof typeof GAS_COLORS] || GAS_COLORS.default;
 }
 
-export function EnhancedSynopticViewer({
+export function SynopticViewer({
   nodes: initialNodes,
   connections: initialConnections,
   onNodeClick,
@@ -59,7 +59,7 @@ export function EnhancedSynopticViewer({
   editable = false,
   visibleNodeIds,
   highlightedNodeIds,
-}: EnhancedSynopticViewerProps) {
+}: SynopticViewerProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const { screenToFlowPosition } = useReactFlow();
   const [isDraggingOver, setIsDraggingOver] = useState(false);

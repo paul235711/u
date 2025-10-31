@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Filter, X, Eye, EyeOff, Search } from 'lucide-react';
-import { GAS_TYPES } from './shared/gas-type-selector';
+import { GAS_TYPES } from '../../shared/gas-type-selector';
 
 export interface NetworkFilters {
   searchQuery: string;

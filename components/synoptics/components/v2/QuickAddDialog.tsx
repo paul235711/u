@@ -12,7 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { GasTypeSelector } from './shared/gas-type-selector';
+import { GasTypeSelector } from '../../shared/gas-type-selector';
 
 interface QuickAddDialogProps {
   open: boolean;

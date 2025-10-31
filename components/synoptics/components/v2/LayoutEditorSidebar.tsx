@@ -5,9 +5,9 @@
 
 'use client';
 
-import { GasLegend } from '@/components/synoptics/gas-legend';
-import { NetworkStatsPanel } from '@/components/synoptics/network-stats-panel';
-import { NetworkFilterPanel, createDefaultFilters } from '@/components/synoptics/network-filter-panel';
+import { GasLegend } from './GasLegend';
+import { NetworkStatsPanel } from './NetworkStatsPanel';
+import { NetworkFilterPanel, createDefaultFilters } from './NetworkFilterPanel';
 import { useUIStore } from '../../stores/ui-store';
 import { useState } from 'react';
 

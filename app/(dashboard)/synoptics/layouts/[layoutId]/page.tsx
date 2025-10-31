@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { getUser, getTeamForUser } from '@/lib/db/queries';
 import { getLayoutWithNodesAndConnections, getOrganizationByTeamId } from '@/lib/db/synoptics-queries';
 import { notFound } from 'next/navigation';
-import { UnifiedLayoutEditorWrapper as UnifiedLayoutEditor } from '@/components/synoptics/UnifiedLayoutEditorWrapper';
+import { LayoutEditorContainer } from '@/components/synoptics';
 import Link from 'next/link';
 import { ChevronRight, Layers } from 'lucide-react';
 
@@ -67,8 +67,8 @@ export default async function LayoutPage({
 
       {/* Unified Editor with Lock/Unlock */}
       <div className="flex-1 overflow-hidden">
-        <UnifiedLayoutEditor
-          layout={layoutData}
+        <LayoutEditorContainer
+          layoutId={layoutId}
           organizationId={organization.id}
           siteId={layoutData.siteId || undefined}
         />

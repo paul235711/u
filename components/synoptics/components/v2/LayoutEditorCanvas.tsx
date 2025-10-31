@@ -8,7 +8,7 @@
 import { useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { EnhancedSynopticViewer } from '@/components/synoptics/enhanced-synoptic-viewer';
+import { SynopticViewer } from './SynopticViewer';
 import { useUIStore } from '../../stores/ui-store';
 import { useUpdateNodePosition } from '../../hooks/use-layout';
 import { apiClient } from '../../api/client';
@@ -152,13 +152,12 @@ export function LayoutEditorCanvas({
           </Button>
         )}
         
-        <EnhancedSynopticViewer
+        <SynopticViewer
           nodes={layout.nodes || []}
           connections={layout.connections || []}
           onNodeClick={handleNodeClick}
           onNodeDragEnd={isLocked ? undefined : handleNodeDragEnd}
           onConnectionCreate={isLocked ? undefined : handleConnectionCreate}
-          onNodeRemove={isLocked ? undefined : handleRemoveFromLayout}
           editable={!isLocked}
         />
       </div>
