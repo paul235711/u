@@ -2,8 +2,7 @@
 
 import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { SiteHierarchyManager } from '@/components/synoptics';
-import { EquipmentManager } from '@/components/synoptics-v2/components/EquipmentManager';
+import { SiteHierarchyManager, EquipmentManager } from '@/components/synoptics';
 import { Building2, Box } from 'lucide-react';
 
 interface SiteDetailClientProps {

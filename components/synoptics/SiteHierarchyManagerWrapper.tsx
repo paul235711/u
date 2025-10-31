@@ -11,7 +11,7 @@ import { FEATURE_FLAGS, logFeatureFlagUsage } from '@/lib/feature-flags';
 import { SiteHierarchyManagerV2 as SiteHierarchyManagerOld } from './site-hierarchy-manager-v2';
 
 // New optimized implementation with React Query + Zustand
-import { SiteHierarchyManagerOptimized } from '../synoptics-v2/components/SiteHierarchyManagerOptimized';
+import { SiteHierarchyManagerOptimized } from './components/v2/SiteHierarchyManagerOptimized';
 
 interface SiteHierarchyManagerWrapperProps {
   siteData: any;

@@ -11,7 +11,7 @@ import { FEATURE_FLAGS, logFeatureFlagUsage } from '@/lib/feature-flags';
 import { UnifiedLayoutEditor as UnifiedLayoutEditorOld } from './unified-layout-editor';
 
 // New implementation
-import { LayoutEditorContainer as UnifiedLayoutEditorNew } from '../synoptics-v2/components/LayoutEditorContainer';
+import { LayoutEditorContainer as UnifiedLayoutEditorNew } from './components/v2/LayoutEditorContainer';
 
 interface UnifiedLayoutEditorWrapperProps {
   layout: any;

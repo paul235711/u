@@ -5,8 +5,7 @@
 
 'use client';
 
-import { LayoutEditorHeader } from '@/components/synoptics-v2/components/LayoutEditorHeader';
-import { useUIStore } from '@/components/synoptics-v2/stores/ui-store';
+import { LayoutEditorHeader, useUIStore } from '@/components/synoptics';
 import { Button } from '@/components/ui/button';
 import { RefreshCcw } from 'lucide-react';
 

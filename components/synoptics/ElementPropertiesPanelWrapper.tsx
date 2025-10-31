@@ -11,7 +11,7 @@ import { FEATURE_FLAGS, logFeatureFlagUsage } from '@/lib/feature-flags';
 import { ElementPropertiesPanel as ElementPropertiesPanelOld } from './element-properties-panel';
 
 // New implementation
-import { ElementPropertiesPanel as ElementPropertiesPanelNew } from '../synoptics-v2/components/ElementPropertiesPanel';
+import { ElementPropertiesPanel as ElementPropertiesPanelNew } from './components/v2/ElementPropertiesPanel';
 
 interface ElementPropertiesPanelWrapperProps {
   element: any;
