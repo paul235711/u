@@ -302,7 +302,9 @@ export function SiteHierarchyManagerOptimized({ siteData, siteId, organizationId
                       size="sm"
                       onClick={() => {
                         setAddingFloorTo(building.id);
-                        toggleBuilding(building.id); // Auto-expand
+                        if (!expandedBuildings.has(building.id)) {
+                          toggleBuilding(building.id); // Auto-expand
+                        }
                       }}
                     >
                       <Plus className="h-4 w-4 mr-1" />
@@ -328,9 +330,10 @@ export function SiteHierarchyManagerOptimized({ siteData, siteId, organizationId
 
                   {/* Floors - sorted by number descending (highest floor at top, negative floors at bottom) */}
                   {building.floors
-                    ?.sort((a: any, b: any) => {
-                      const numA = a.number || 0;
-                      const numB = b.number || 0;
+                    ?.slice()
+                    .sort((a: any, b: any) => {
+                      const numA = typeof a.floorNumber === 'number' ? a.floorNumber : a.number || 0;
+                      const numB = typeof b.floorNumber === 'number' ? b.floorNumber : b.number || 0;
                       // Sort descending: 5, 4, 3, 2, 1, 0, -1, -2 (highest at top)
                       return numB - numA;
                     })
@@ -410,7 +413,9 @@ export function SiteHierarchyManagerOptimized({ siteData, siteId, organizationId
                                 size="sm"
                                 onClick={() => {
                                   setAddingZoneTo(floor.id);
-                                  toggleFloor(floor.id); // Auto-expand
+                                  if (!isFloorExpanded) {
+                                    toggleFloor(floor.id); // Auto-expand
+                                  }
                                 }}
                               >
                                 <Plus className="h-3 w-3 mr-1" />

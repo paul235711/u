@@ -1,3 +1,17 @@
+# 🏥 Système de Gestion Synoptics - Distribution de Gaz Médicaux
+
+Application web pour la visualisation et gestion de réseaux de distribution de gaz médicaux dans les établissements de santé.
+
+## 🏛️ Architecture
+
+- **Frontend**: Next.js 14 avec TypeScript
+- **Backend**: API Routes Next.js
+- **Base de données**: PostgreSQL avec Drizzle ORM
+- **État**: Zustand + React Query
+- **UI**: shadcn/ui + Tailwind CSS
+
+sur 
+
 # Next.js SaaS Starter
 
 This is a starter template for building a SaaS application using **Next.js** with support for authentication, Stripe integration for payments, and a dashboard for logged-in users.
