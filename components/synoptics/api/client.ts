@@ -92,12 +92,12 @@ class SynopticsAPIClient {
   // Node Endpoints
   // ========================================
 
-  async getNodes(organizationId: string) {
-    return this.request(`/nodes?organizationId=${organizationId}`);
+  async getNodes(siteId: string) {
+    return this.request(`/nodes?siteId=${siteId}`);
   }
 
   async createNode(data: {
-    organizationId: string;
+    siteId: string;
     nodeType: 'source' | 'valve' | 'fitting';
     elementId: string;
     outletCount: number;
@@ -134,7 +134,7 @@ class SynopticsAPIClient {
   // ========================================
 
   async createValve(data: {
-    organizationId: string;
+    siteId: string;
     name: string;
     valveType: string;
     gasType: string;
@@ -173,7 +173,7 @@ class SynopticsAPIClient {
   // ========================================
 
   async createConnection(data: {
-    organizationId: string;
+    siteId: string;
     fromNodeId: string;
     toNodeId: string;
     gasType: string;

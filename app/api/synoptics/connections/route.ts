@@ -4,7 +4,7 @@ import { createConnection } from '@/lib/db/synoptics-queries';
 import { z } from 'zod';
 
 const connectionSchema = z.object({
-  organizationId: z.string().uuid(),
+  siteId: z.string().uuid(),
   fromNodeId: z.string().uuid(),
   toNodeId: z.string().uuid(),
   gasType: z.string().min(1),
@@ -24,7 +24,10 @@ export async function POST(request: NextRequest) {
     
     const validatedData = connectionSchema.parse(body);
 
-    const connection = await createConnection(validatedData);
+    const connection = await createConnection({
+      ...validatedData,
+      diameterMm: validatedData.diameterMm ?? undefined,
+    });
     console.log('Connection created:', connection);
 
     return NextResponse.json(connection, { status: 201 });

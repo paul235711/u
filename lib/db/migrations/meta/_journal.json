@@ -15,6 +15,13 @@
       "when": 1761670950886,
       "tag": "0001_gifted_skrulls",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1762175153634,
+      "tag": "0002_next_human_fly",
+      "breakpoints": true
     }
   ]
 }

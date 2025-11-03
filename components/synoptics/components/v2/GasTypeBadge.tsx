@@ -1,5 +1,5 @@
 import { Badge } from '@/components/ui/badge';
-import type { GasType } from '@/components/synoptics/hierarchy/gas-indicators';
+import type { GasType } from './hierarchy/gas-indicators';
 
 const GAS_LABELS: Record<GasType, string> = {
   oxygen: 'O₂',

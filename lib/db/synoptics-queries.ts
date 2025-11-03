@@ -207,11 +207,11 @@ export async function deleteZone(zoneId: string) {
 // SOURCE QUERIES
 // =====================================================
 
-export async function getSourcesByOrganizationId(organizationId: string) {
+export async function getSourcesBySiteId(siteId: string) {
   return db
     .select()
     .from(sources)
-    .where(eq(sources.organizationId, organizationId))
+    .where(eq(sources.siteId, siteId))
     .orderBy(desc(sources.createdAt));
 }
 
@@ -246,11 +246,11 @@ export async function deleteSource(sourceId: string) {
 // VALVE QUERIES
 // =====================================================
 
-export async function getValvesByOrganizationId(organizationId: string) {
+export async function getValvesBySiteId(siteId: string) {
   return db
     .select()
     .from(valves)
-    .where(eq(valves.organizationId, organizationId))
+    .where(eq(valves.siteId, siteId))
     .orderBy(desc(valves.createdAt));
 }
 
@@ -285,11 +285,11 @@ export async function deleteValve(valveId: string) {
 // FITTING QUERIES
 // =====================================================
 
-export async function getFittingsByOrganizationId(organizationId: string) {
+export async function getFittingsBySiteId(siteId: string) {
   return db
     .select()
     .from(fittings)
-    .where(eq(fittings.organizationId, organizationId))
+    .where(eq(fittings.siteId, siteId))
     .orderBy(desc(fittings.createdAt));
 }
 
@@ -472,11 +472,11 @@ export async function deleteNodePosition(nodeId: string, layoutId: string) {
 // CONNECTION QUERIES
 // =====================================================
 
-export async function getConnectionsByOrganizationId(organizationId: string) {
+export async function getConnectionsBySiteId(siteId: string) {
   return db
     .select()
     .from(connections)
-    .where(eq(connections.organizationId, organizationId))
+    .where(eq(connections.siteId, siteId))
     .orderBy(desc(connections.createdAt));
 }
 
@@ -654,15 +654,11 @@ export async function getLayoutWithNodesAndConnections(layoutId: string) {
   const validNodes = nodesData.filter((node: any) => node !== null);
   const nodeIdSet = new Set(validNodes.map((n: any) => n.id));
 
-  // Get organizationId from site (layouts are now linked to sites)
-  const site = await getSiteById(layout.siteId);
-  if (!site) return null;
-
-  // Get all connections for the organization
+  // Load all connections scoped to this site
   const allConnections = await db
     .select()
     .from(connections)
-    .where(eq(connections.organizationId, site.organizationId));
+    .where(eq(connections.siteId, layout.siteId));
 
   // Filter connections to only include those between nodes in THIS layout
   const connectionsData = allConnections.filter(

@@ -114,15 +114,8 @@ export function LayoutEditorCanvas({
         return;
       }
 
-      // Get organizationId from site (layouts are now site-specific)
-      const siteResponse = await fetch(`/api/synoptics/sites/${layout.siteId}`);
-      if (!siteResponse.ok) {
-        throw new Error('Failed to fetch site information');
-      }
-      const site = await siteResponse.json();
-
       await apiClient.createConnection({
-        organizationId: site.organizationId,
+        siteId: layout.siteId,
         fromNodeId,
         toNodeId,
         gasType: fromNode.gasType,

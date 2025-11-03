@@ -216,9 +216,9 @@ export const zones = pgTable('zones', {
 // Sources (gas sources)
 export const sources = pgTable('sources', {
   id: uuid('id').defaultRandom().primaryKey(),
-  organizationId: uuid('organization_id')
+  siteId: uuid('site_id')
     .notNull()
-    .references(() => organizations.id, { onDelete: 'cascade' }),
+    .references(() => sites.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
   gasType: text('gas_type').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -227,9 +227,9 @@ export const sources = pgTable('sources', {
 // Valves
 export const valves = pgTable('valves', {
   id: uuid('id').defaultRandom().primaryKey(),
-  organizationId: uuid('organization_id')
+  siteId: uuid('site_id')
     .notNull()
-    .references(() => organizations.id, { onDelete: 'cascade' }),
+    .references(() => sites.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
   valveType: text('valve_type').notNull(),
   gasType: text('gas_type').notNull(),
@@ -240,9 +240,9 @@ export const valves = pgTable('valves', {
 // Fittings
 export const fittings = pgTable('fittings', {
   id: uuid('id').defaultRandom().primaryKey(),
-  organizationId: uuid('organization_id')
+  siteId: uuid('site_id')
     .notNull()
-    .references(() => organizations.id, { onDelete: 'cascade' }),
+    .references(() => sites.id, { onDelete: 'cascade' }),
   name: text('name'),
   fittingType: text('fitting_type').notNull(),
   gasType: text('gas_type').notNull(),
@@ -296,9 +296,9 @@ export const nodePositions = pgTable('node_positions', {
 // Connections (pipes between nodes)
 export const connections = pgTable('connections', {
   id: uuid('id').defaultRandom().primaryKey(),
-  organizationId: uuid('organization_id')
+  siteId: uuid('site_id')
     .notNull()
-    .references(() => organizations.id, { onDelete: 'cascade' }),
+    .references(() => sites.id, { onDelete: 'cascade' }),
   fromNodeId: uuid('from_node_id')
     .notNull()
     .references(() => nodes.id, { onDelete: 'cascade' }),
@@ -313,9 +313,9 @@ export const connections = pgTable('connections', {
 // Media (photos/documents for network elements)
 export const media = pgTable('media', {
   id: uuid('id').defaultRandom().primaryKey(),
-  organizationId: uuid('organization_id')
+  siteId: uuid('site_id')
     .notNull()
-    .references(() => organizations.id, { onDelete: 'cascade' }),
+    .references(() => sites.id, { onDelete: 'cascade' }),
   elementId: uuid('element_id').notNull(),
   elementType: text('element_type').notNull(),
   storagePath: text('storage_path').notNull(),
@@ -332,9 +332,6 @@ export const organizationsRelations = relations(organizations, ({ one, many }: a
     references: [teams.id],
   }),
   sites: many(sites),
-  sources: many(sources),
-  valves: many(valves),
-  fittings: many(fittings),
 }));
 
 export const sitesRelations = relations(sites, ({ one, many }: any) => ({
@@ -344,6 +341,12 @@ export const sitesRelations = relations(sites, ({ one, many }: any) => ({
   }),
   buildings: many(buildings),
   layouts: many(layouts),
+  nodes: many(nodes),
+  sources: many(sources),
+  valves: many(valves),
+  fittings: many(fittings),
+  connections: many(connections),
+  media: many(media),
 }));
 
 export const buildingsRelations = relations(buildings, ({ one, many }: any) => ({
@@ -393,9 +396,9 @@ export const nodesRelations = relations(nodes, ({ one, many }: any) => ({
 }));
 
 export const connectionsRelations = relations(connections, ({ one }: any) => ({
-  organization: one(organizations, {
-    fields: [connections.organizationId],
-    references: [organizations.id],
+  site: one(sites, {
+    fields: [connections.siteId],
+    references: [sites.id],
   }),
   fromNode: one(nodes, {
     fields: [connections.fromNodeId],

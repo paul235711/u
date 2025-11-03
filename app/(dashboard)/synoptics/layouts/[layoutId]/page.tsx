@@ -69,7 +69,6 @@ export default async function LayoutPage({
       <div className="flex-1 overflow-hidden">
         <LayoutEditorContainer
           layoutId={layoutId}
-          organizationId={organization.id}
           siteId={layoutData.siteId || undefined}
         />
       </div>

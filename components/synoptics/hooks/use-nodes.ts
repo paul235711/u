@@ -13,7 +13,7 @@ export function useCreateNode() {
 
   return useMutation({
     mutationFn: (data: {
-      organizationId: string;
+      siteId: string;
       nodeType: 'source' | 'valve' | 'fitting';
       elementId: string;
       outletCount: number;

@@ -4,7 +4,7 @@ import { createFitting } from '@/lib/db/synoptics-queries';
 import { z } from 'zod';
 
 const fittingSchema = z.object({
-  organizationId: z.string().uuid(),
+  siteId: z.string().uuid(),
   name: z.string().optional().nullable(),
   fittingType: z.string().min(1),
   gasType: z.string().min(1),

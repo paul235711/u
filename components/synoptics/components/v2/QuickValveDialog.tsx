@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { GasType } from '@/components/synoptics/hierarchy/gas-indicators';
+import type { GasType } from './hierarchy/gas-indicators';
 
 interface QuickValveDialogProps {
   open: boolean;
@@ -15,7 +15,6 @@ interface QuickValveDialogProps {
   locationId: string;
   locationType: 'building' | 'floor' | 'zone';
   siteId: string;
-  organizationId: string;
   onSuccess: () => void;
 }
 
@@ -38,7 +37,6 @@ export function QuickValveDialog({
   locationId,
   locationType,
   siteId,
-  organizationId,
   onSuccess 
 }: QuickValveDialogProps) {
   const [name, setName] = useState('');
@@ -59,7 +57,7 @@ export function QuickValveDialog({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          organizationId,
+          siteId,
           name: name.trim(),
           valveType: 'isolation', // Default valve type
           gasType: selectedGas,

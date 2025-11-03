@@ -6,6 +6,7 @@ import { z } from 'zod';
 const updateSchema = z.object({
   name: z.string().min(1).optional(),
   gasType: z.string().min(1).optional(),
+  siteId: z.string().uuid().optional(),
 });
 
 export async function GET(

@@ -126,14 +126,9 @@ export function EquipmentBankEnhanced({
   // Create equipment mutation
   const createMutation = useMutation({
     mutationFn: async () => {
-      // Step 1: Get organizationId from site
-      const siteResponse = await fetch(`/api/synoptics/sites/${siteId}`);
-      if (!siteResponse.ok) throw new Error('Failed to fetch site');
-      const site = await siteResponse.json();
-
-      // Step 2: Create element
+      // Create element
       let elementEndpoint = '';
-      let elementData: any = { organizationId: site.organizationId, name: createName.trim() };
+      let elementData: any = { siteId, name: createName.trim() };
 
       if (createType === 'valve') {
         elementEndpoint = '/api/synoptics/valves';

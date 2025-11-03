@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2 } from 'lucide-react';
 import { GasTypeBadge } from './GasTypeBadge';
-import type { GasType } from '@/components/synoptics/hierarchy/gas-indicators';
+import type { GasType } from './hierarchy/gas-indicators';
 
 interface EquipmentCreateDialogProps {
   open: boolean;
@@ -56,18 +56,10 @@ export function EquipmentCreateDialog({
     setError(null);
 
     try {
-      // Step 0: Fetch site to get organizationId (elements still need it)
-      const siteResponse = await fetch(`/api/synoptics/sites/${siteId}`);
-      if (!siteResponse.ok) {
-        throw new Error('Failed to fetch site information');
-      }
-      const site = await siteResponse.json();
-      const organizationId = site.organizationId;
-
       // Step 1: Create element (valve, source, or fitting)
       let elementEndpoint = '';
       let elementData: any = {
-        organizationId,
+        siteId,
         name: name.trim(),
       };
 
