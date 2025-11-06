@@ -4,8 +4,6 @@ import { useCallback, useMemo, useRef, useEffect, useState } from 'react';
 import {
   ReactFlow,
   Background,
-  Controls,
-  MiniMap,
   Node,
   Edge,
   useNodesState,
@@ -20,13 +18,16 @@ import '@xyflow/react/dist/style.css';
 import { SourceNode } from './nodes/source-node';
 import { ValveNode } from './nodes/valve-node';
 import { FittingNode } from './nodes/fitting-node';
-import { CustomEdge } from '../../custom-edge';
+import { NodeDetailsPanel } from './NodeDetailsPanel';
+import { SynopticLegend } from './SynopticLegend';
+import { useDownstreamNodes } from './hooks/useDownstreamNodes';
 
 type EdgeToolMode = 'select' | 'cut';
 
 interface SynopticViewerProps {
   nodes: any[];
   connections: any[];
+  siteId?: string;
   onNodeClick?: (node: Node) => void;
   onNodeDragEnd?: (nodeId: string, position: { x: number; y: number }) => void;
   onConnectionCreate?: (fromNodeId: string, toNodeId: string) => Promise<void>;
@@ -59,6 +60,7 @@ function getGasColor(gasType: string): string {
 export function SynopticViewer({
   nodes: initialNodes,
   connections: initialConnections,
+  siteId,
   onNodeClick,
   onNodeDragEnd,
   onConnectionCreate,
@@ -72,12 +74,19 @@ export function SynopticViewer({
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const { screenToFlowPosition } = useReactFlow();
   const [isDraggingOver, setIsDraggingOver] = useState(false);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [selectedNodeData, setSelectedNodeData] = useState<any | null>(null);
+  
+  // Calculate downstream nodes from selected node
+  const downstreamNodeIds = useDownstreamNodes(initialConnections, selectedNodeId);
 
   // Transform data to React Flow format
   const flowNodes: Node[] = useMemo(() => {
     return initialNodes.map((node) => {
       const isVisible = !visibleNodeIds || visibleNodeIds.has(node.id);
       const isHighlighted = highlightedNodeIds && highlightedNodeIds.has(node.id);
+      const isSelected = !editable && selectedNodeId === node.id;
+      const isDownstream = !editable && downstreamNodeIds.has(node.id);
       
       // Handle position - it could be in different formats
       let xPos = 0;
@@ -108,18 +117,20 @@ export function SynopticViewer({
           label: node.name || node.label || `${node.nodeType} ${node.id.slice(0, 8)}`,
           isVisible,
           isHighlighted,
+          isSelected,
+          isDownstream,
+          editable, // Pass editable to node data for handle visibility
         },
         draggable: editable,
         // Apply visibility styling
         style: {
-          opacity: isVisible ? 1 : 0.15,
-          transition: 'opacity 0.2s ease-in-out',
+          opacity: isVisible ? 1 : 0.05,
         },
         // Apply highlighting
         className: isHighlighted ? 'ring-4 ring-yellow-400 ring-offset-2' : '',
       };
     });
-  }, [initialNodes, editable, visibleNodeIds, highlightedNodeIds]);
+  }, [initialNodes, editable, visibleNodeIds, highlightedNodeIds, selectedNodeId, downstreamNodeIds]);
 
   const cutModeActive = editable && edgeToolMode === 'cut';
 
@@ -128,26 +139,44 @@ export function SynopticViewer({
       const isVisible = (!visibleNodeIds || 
         (visibleNodeIds.has(conn.fromNodeId) && visibleNodeIds.has(conn.toNodeId)));
 
+      // Determine if edge is connected to selected or downstream nodes
+      const isFromSelected = !editable && selectedNodeId === conn.fromNodeId;
+      const isConnectingDownstream = !editable && (
+        (selectedNodeId === conn.fromNodeId && downstreamNodeIds.has(conn.toNodeId)) ||
+        (downstreamNodeIds.has(conn.fromNodeId) && downstreamNodeIds.has(conn.toNodeId))
+      );
+      const isHighlightedEdge = isFromSelected || isConnectingDownstream;
+
+      // Subtle styling for highlighted edges
+      const strokeWidth = isHighlightedEdge ? 4 : 3;
+      const opacity = isVisible ? (isHighlightedEdge ? 1 : 0.9) : 0.05;
+
       return {
         id: conn.id,
         source: conn.fromNodeId,
         target: conn.toNodeId,
-        type: 'smoothstep', // Use smoothstep for better looking connections
-        animated: false,
+        type: 'smoothstep',
+        animated: isHighlightedEdge, // Animation for highlighted edges
         style: {
           stroke: getGasColor(conn.gasType),
-          strokeWidth: 3,
-          opacity: isVisible ? 1 : 0.15,
-          transition: 'opacity 0.2s ease-in-out',
+          strokeWidth,
+          opacity,
           cursor: cutModeActive ? 'crosshair' : 'pointer',
         },
         label: conn.diameterMm ? `Ø${conn.diameterMm}mm` : undefined,
-        labelStyle: { fontSize: 10, fill: '#666' },
-        labelBgStyle: { fill: '#fff', fillOpacity: 0.8 },
+        labelStyle: { 
+          fontSize: 10, 
+          fill: '#666',
+          fontWeight: isHighlightedEdge ? 600 : 400,
+        },
+        labelBgStyle: { 
+          fill: '#fff', 
+          fillOpacity: 0.8,
+        },
         data: conn,
       };
     });
-  }, [initialConnections, visibleNodeIds, cutModeActive]);
+  }, [initialConnections, visibleNodeIds, cutModeActive, editable, selectedNodeId, downstreamNodeIds]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(flowNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(flowEdges);
@@ -218,11 +247,18 @@ export function SynopticViewer({
   // Handle node click
   const handleNodeClick = useCallback(
     (_event: React.MouseEvent, node: Node) => {
+      // In non-editable mode, open details panel
+      if (!editable) {
+        setSelectedNodeId(node.id);
+        setSelectedNodeData(node.data);
+      }
+      
+      // Call parent callback if provided
       if (onNodeClick) {
         onNodeClick(node);
       }
     },
-    [onNodeClick]
+    [editable, onNodeClick]
   );
 
   // Handle drop from toolbar
@@ -266,38 +302,58 @@ export function SynopticViewer({
     []
   );
 
-  const edgeTypes = useMemo(
-    () => ({
-      default: CustomEdge,
-      smoothstep: CustomEdge,
-    }),
-    []
-  );
-
   const isEmpty = nodes.length === 0;
 
+  // Calculate gas types and node types for legend
+  const gasTypes = useMemo(() => {
+    const types = new Set<string>();
+    initialConnections.forEach((conn) => {
+      if (conn.gasType) {
+        types.add(conn.gasType);
+      }
+    });
+    return types;
+  }, [initialConnections]);
+
+  const nodeTypeFlags = useMemo(() => {
+    const flags = {
+      hasSource: false,
+      hasValve: false,
+      hasFitting: false,
+    };
+    initialNodes.forEach((node) => {
+      if (node.nodeType === 'source') flags.hasSource = true;
+      if (node.nodeType === 'valve') flags.hasValve = true;
+      if (node.nodeType === 'fitting') flags.hasFitting = true;
+    });
+    return flags;
+  }, [initialNodes]);
+
   return (
-    <div 
-      ref={reactFlowWrapper} 
-      className={`w-full h-full bg-gray-50 relative transition-all ${
-        isDraggingOver && editable ? 'ring-4 ring-blue-400 ring-inset' : ''
-      } ${cutModeActive ? 'cursor-crosshair' : ''}`}
-    >
+    <div className="w-full h-full flex">
+      <div 
+        ref={reactFlowWrapper} 
+        className={`flex-1 bg-gray-50 relative transition-all ${
+          isDraggingOver && editable ? 'ring-4 ring-blue-400 ring-inset' : ''
+        } ${cutModeActive ? 'cursor-crosshair' : ''}`}
+      >
       <ReactFlow
         nodes={nodes}
         edges={edges}
-        onNodesChange={editable ? onNodesChange : undefined}
-        onEdgesChange={editable ? onEdgesChange : undefined}
-        onEdgesDelete={handleEdgesDelete}
-        onEdgeClick={handleEdgeClick}
-        onConnect={handleConnect}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        onEdgesDelete={editable ? handleEdgesDelete : undefined}
+        onEdgeClick={editable ? handleEdgeClick : undefined}
+        onConnect={editable ? handleConnect : undefined}
         onNodeClick={handleNodeClick}
-        onNodeDragStop={handleNodeDragStop}
-        onDrop={handleDrop}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
+        onNodeDragStop={editable ? handleNodeDragStop : undefined}
+        onDrop={editable ? handleDrop : undefined}
+        onDragOver={editable ? handleDragOver : undefined}
+        onDragLeave={editable ? handleDragLeave : undefined}
         nodeTypes={nodeTypes}
-        edgeTypes={edgeTypes}
+        nodesDraggable={editable}
+        nodesConnectable={editable}
+        elementsSelectable={true}
         fitView
         fitViewOptions={{
           padding: 0.2,
@@ -305,7 +361,7 @@ export function SynopticViewer({
           minZoom: 0.5,
           maxZoom: 1.5,
         }}
-        snapToGrid={true}
+        snapToGrid={editable}
         snapGrid={[15, 15]}
         defaultEdgeOptions={{
           animated: false,
@@ -314,30 +370,19 @@ export function SynopticViewer({
         }}
         connectionLineStyle={{ strokeWidth: 3 }}
         connectionLineType={'smoothstep' as any}
-        attributionPosition="bottom-left"
         deleteKeyCode={editable ? 'Delete' : null}
+        proOptions={{ hideAttribution: true }}
       >
         <Background variant={BackgroundVariant.Dots} gap={15} size={1} />
-        <Controls position="top-left" />
-        <MiniMap
-          position="bottom-right"
-          nodeColor={(node) => {
-            if (node.type === 'source') return '#10B981';
-            if (node.type === 'valve') return '#EF4444';
-            if (node.type === 'fitting') return '#3B82F6';
-            return '#6B7280';
-          }}
-          nodeStrokeWidth={3}
-          maskColor="rgba(255, 255, 255, 0.8)"
-          style={{
-            backgroundColor: '#f9fafb',
-            border: '1px solid #e5e7eb',
-            borderRadius: '8px',
-          }}
-          zoomable
-          pannable
-        />
       </ReactFlow>
+      
+      {/* Legend */}
+      <SynopticLegend
+        gasTypes={gasTypes}
+        hasSource={nodeTypeFlags.hasSource}
+        hasValve={nodeTypeFlags.hasValve}
+        hasFitting={nodeTypeFlags.hasFitting}
+      />
       
       {/* Empty State */}
       {isEmpty && editable && (
@@ -354,6 +399,19 @@ export function SynopticViewer({
             </p>
           </div>
         </div>
+      )}
+      </div>
+      
+      {/* Details Panel */}
+      {!editable && selectedNodeData && siteId && (
+        <NodeDetailsPanel 
+          node={selectedNodeData}
+          siteId={siteId}
+          onClose={() => {
+            setSelectedNodeId(null);
+            setSelectedNodeData(null);
+          }} 
+        />
       )}
     </div>
   );

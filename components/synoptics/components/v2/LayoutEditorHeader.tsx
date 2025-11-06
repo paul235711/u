@@ -23,7 +23,6 @@ export function LayoutEditorHeader({ layoutName }: LayoutEditorHeaderProps = {})
   
   const showStats = useUIStore((state) => state.panels.stats);
   const showFilters = useUIStore((state) => state.panels.filters);
-  const showLegend = useUIStore((state) => state.panels.legend);
   const togglePanel = useUIStore((state) => state.togglePanel);
 
   return (
@@ -46,21 +45,20 @@ export function LayoutEditorHeader({ layoutName }: LayoutEditorHeaderProps = {})
 
         {/* Action Buttons */}
         <div className="flex gap-2">
-          {/* Cut Connection Tool */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={toggleEdgeToolMode}
-            disabled={isLocked}
-            aria-pressed={edgeToolMode === 'cut'}
-            className={`${
-              edgeToolMode === 'cut' ? 'bg-red-50 border-red-300 text-red-600' : ''
-            } ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
-            title={isLocked ? 'Unlock to cut connections' : 'Toggle cut connections tool'}
-          >
-            <Scissors className="mr-2 h-4 w-4" />
-            Cut tool
-          </Button>
+          {/* Cut Connection Tool - Only visible in edit mode */}
+          {!isLocked && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={toggleEdgeToolMode}
+              aria-pressed={edgeToolMode === 'cut'}
+              className={edgeToolMode === 'cut' ? 'bg-red-50 border-red-300 text-red-600' : ''}
+              title="Toggle cut connections tool"
+            >
+              <Scissors className="mr-2 h-4 w-4" />
+              Cut tool
+            </Button>
+          )}
 
           {/* Lock Toggle */}
           <Button
@@ -110,16 +108,6 @@ export function LayoutEditorHeader({ layoutName }: LayoutEditorHeaderProps = {})
               <Eye className="mr-2 h-4 w-4" />
             )}
             Stats
-          </Button>
-
-          {/* Legend Toggle */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => togglePanel('legend')}
-            className={showLegend ? 'bg-blue-50' : ''}
-          >
-            Legend
           </Button>
 
           {/* Shortcuts */}

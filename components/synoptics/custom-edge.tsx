@@ -23,30 +23,11 @@ export function CustomEdge({
   });
 
   return (
-    <>
-      {/* Main edge line */}
-      <BaseEdge
-        id={id}
-        path={edgePath}
-        style={style}
-        markerEnd={markerEnd}
-      />
-      {/* White outline for better visibility at crossings */}
-      <path
-        d={edgePath}
-        fill="none"
-        stroke="white"
-        strokeWidth={(style.strokeWidth as number || 3) + 4}
-        strokeOpacity={0.85}
-        style={{ pointerEvents: 'none' }}
-      />
-      <path
-        d={edgePath}
-        fill="none"
-        stroke={style.stroke as string || '#000'}
-        strokeWidth={style.strokeWidth as number || 3}
-        style={{ pointerEvents: 'visibleStroke' }}
-      />
-    </>
+    <BaseEdge
+      id={id}
+      path={edgePath}
+      style={style}
+      markerEnd={markerEnd}
+    />
   );
 }

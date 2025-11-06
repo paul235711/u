@@ -1,17 +1,19 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Filter, X, Eye, EyeOff, Search } from 'lucide-react';
+import { Filter, X, Eye, EyeOff, Search, Building2 } from 'lucide-react';
 import { GAS_TYPES } from '../../shared/gas-type-selector';
+import { useQuery } from '@tanstack/react-query';
 
 export interface NetworkFilters {
   searchQuery: string;
   selectedGasTypes: Set<string>;
   selectedNodeTypes: Set<'source' | 'valve' | 'fitting'>;
+  selectedBuildingIds: Set<string>;
   showIsolated: boolean;
   highlightedNodes: Set<string>;
 }
@@ -20,10 +22,36 @@ interface NetworkFilterPanelProps {
   filters: NetworkFilters;
   onChange: (filters: NetworkFilters) => void;
   onReset: () => void;
+  nodes: any[];
+  connections: any[];
+  siteId?: string;
 }
 
-export function NetworkFilterPanel({ filters, onChange, onReset }: NetworkFilterPanelProps) {
+export function NetworkFilterPanel({ filters, onChange, onReset, nodes, connections, siteId }: NetworkFilterPanelProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+
+  // Fetch buildings for the site
+  const { data: buildings = [] } = useQuery({
+    queryKey: ['buildings', siteId],
+    queryFn: async () => {
+      if (!siteId) return [];
+      const res = await fetch(`/api/synoptics/buildings?siteId=${siteId}`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!siteId,
+  });
+
+  // Calculate available gas types from connections
+  const availableGasTypes = useMemo(() => {
+    const gasSet = new Set<string>();
+    connections.forEach((conn) => {
+      if (conn.gasType) {
+        gasSet.add(conn.gasType);
+      }
+    });
+    return GAS_TYPES.filter(gas => gasSet.has(gas.value));
+  }, [connections]);
 
   const handleGasTypeToggle = (gasType: string) => {
     const newSet = new Set(filters.selectedGasTypes);
@@ -45,10 +73,21 @@ export function NetworkFilterPanel({ filters, onChange, onReset }: NetworkFilter
     onChange({ ...filters, selectedNodeTypes: newSet });
   };
 
+  const handleBuildingToggle = (buildingId: string) => {
+    const newSet = new Set(filters.selectedBuildingIds);
+    if (newSet.has(buildingId)) {
+      newSet.delete(buildingId);
+    } else {
+      newSet.add(buildingId);
+    }
+    onChange({ ...filters, selectedBuildingIds: newSet });
+  };
+
   const hasActiveFilters =
     filters.searchQuery ||
     filters.selectedGasTypes.size > 0 ||
     filters.selectedNodeTypes.size > 0 ||
+    filters.selectedBuildingIds.size > 0 ||
     filters.showIsolated;
 
   return (
@@ -97,11 +136,17 @@ export function NetworkFilterPanel({ filters, onChange, onReset }: NetworkFilter
               </div>
             </div>
 
-            {/* Gas Types */}
+            {/* Gas Types - Only show available */}
             <div>
-              <Label className="text-xs text-gray-700 mb-2 block">Filter by Gas Type</Label>
-              <div className="space-y-1.5">
-                {GAS_TYPES.map((gas) => (
+              <Label className="text-xs text-gray-700 mb-2 block">
+                Filter by Gas Type
+                <span className="ml-2 text-[10px] text-gray-500">({availableGasTypes.length} available)</span>
+              </Label>
+              {availableGasTypes.length === 0 ? (
+                <p className="text-xs text-gray-500 italic">No gas types in this layout</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {availableGasTypes.map((gas) => (
                   <button
                     key={gas.value}
                     onClick={() => handleGasTypeToggle(gas.value)}
@@ -127,8 +172,9 @@ export function NetworkFilterPanel({ filters, onChange, onReset }: NetworkFilter
                       </div>
                     )}
                   </button>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Node Types */}
@@ -150,6 +196,42 @@ export function NetworkFilterPanel({ filters, onChange, onReset }: NetworkFilter
                 ))}
               </div>
             </div>
+
+            {/* Building Filter */}
+            {buildings.length > 0 && (
+              <div>
+                <Label className="text-xs text-gray-700 mb-2 flex items-center gap-1">
+                  <Building2 className="w-3 h-3" />
+                  Filter by Building
+                </Label>
+                <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                  {buildings.map((building: any) => (
+                    <button
+                      key={building.id}
+                      onClick={() => handleBuildingToggle(building.id)}
+                      className={`w-full flex items-center justify-between p-2 rounded-lg text-xs transition-all ${
+                        filters.selectedBuildingIds.has(building.id)
+                          ? 'bg-green-100 border-2 border-green-500'
+                          : 'bg-gray-50 border-2 border-transparent hover:border-gray-300'
+                      }`}
+                    >
+                      <span className="font-medium text-gray-900">{building.name}</span>
+                      {filters.selectedBuildingIds.has(building.id) && (
+                        <div className="w-4 h-4 rounded-full bg-green-600 flex items-center justify-center">
+                          <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                            <path
+                              fillRule="evenodd"
+                              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Special Filters */}
             <div>
@@ -202,6 +284,11 @@ export function NetworkFilterPanel({ filters, onChange, onReset }: NetworkFilter
                   {filters.selectedNodeTypes.size} node type(s)
                 </span>
               )}
+              {filters.selectedBuildingIds.size > 0 && (
+                <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                  {filters.selectedBuildingIds.size} building(s)
+                </span>
+              )}
               {filters.showIsolated && (
                 <span className="bg-orange-100 text-orange-800 px-2 py-1 rounded">
                   Isolated only
@@ -220,19 +307,21 @@ export function createDefaultFilters(): NetworkFilters {
     searchQuery: '',
     selectedGasTypes: new Set(),
     selectedNodeTypes: new Set(),
+    selectedBuildingIds: new Set(),
     showIsolated: false,
     highlightedNodes: new Set(),
   };
 }
 
 /**
- * Apply filters to nodes
+ * Apply filters to get complete network (nodes + connections)
+ * Returns both visible nodes and connections for a complete network view
  */
-export function applyFilters(
+export function applyNetworkFilters(
   nodes: any[],
   connections: any[],
   filters: NetworkFilters
-): Set<string> {
+): { visibleNodeIds: Set<string>; visibleConnectionIds: Set<string> } {
   let filteredNodeIds = new Set(nodes.map((n) => n.id));
 
   // Apply search filter
@@ -250,12 +339,38 @@ export function applyFilters(
     );
   }
 
-  // Apply gas type filter
+  // Apply gas type filter - includes connected nodes
   if (filters.selectedGasTypes.size > 0) {
+    const gasRelatedNodeIds = new Set<string>();
+    const gasRelatedConnectionIds = new Set<string>();
+
+    // Find all connections with selected gas types
+    connections.forEach((conn) => {
+      if (filters.selectedGasTypes.has(conn.gasType)) {
+        gasRelatedConnectionIds.add(conn.id);
+        gasRelatedNodeIds.add(conn.fromNodeId);
+        gasRelatedNodeIds.add(conn.toNodeId);
+      }
+    });
+
+    // Also include nodes that have the selected gas type
+    nodes.forEach((node) => {
+      if (filters.selectedGasTypes.has(node.gasType)) {
+        gasRelatedNodeIds.add(node.id);
+      }
+    });
+
+    filteredNodeIds = new Set(
+      Array.from(filteredNodeIds).filter((id) => gasRelatedNodeIds.has(id))
+    );
+  }
+
+  // Apply building filter
+  if (filters.selectedBuildingIds.size > 0) {
     filteredNodeIds = new Set(
       Array.from(filteredNodeIds).filter((id) => {
         const node = nodes.find((n) => n.id === id);
-        return node && filters.selectedGasTypes.has(node.gasType);
+        return node && node.buildingId && filters.selectedBuildingIds.has(node.buildingId);
       })
     );
   }
@@ -282,5 +397,25 @@ export function applyFilters(
     );
   }
 
-  return filteredNodeIds;
+  // Calculate visible connections (only between visible nodes)
+  const visibleConnectionIds = new Set<string>();
+  connections.forEach((conn) => {
+    if (filteredNodeIds.has(conn.fromNodeId) && filteredNodeIds.has(conn.toNodeId)) {
+      visibleConnectionIds.add(conn.id);
+    }
+  });
+
+  return {
+    visibleNodeIds: filteredNodeIds,
+    visibleConnectionIds,
+  };
+}
+
+/** Backward compatibility */
+export function applyFilters(
+  nodes: any[],
+  connections: any[],
+  filters: NetworkFilters
+): Set<string> {
+  return applyNetworkFilters(nodes, connections, filters).visibleNodeIds;
 }

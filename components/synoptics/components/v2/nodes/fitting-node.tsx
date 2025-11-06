@@ -20,13 +20,24 @@ function getGasColor(gasType: string) {
 
 export const FittingNode = memo(({ data }: NodeProps) => {
   const colors = getGasColor(data.gasType);
+  const showHandles = data.editable !== false; // Show handles only in editable mode
+  const isSelected = data.isSelected === true;
+  const isDownstream = data.isDownstream === true;
+  
+  // Determine highlight style
+  let highlightClass = 'shadow-md';
+  if (isSelected) {
+    highlightClass = 'ring-4 ring-gray-900 ring-offset-2 shadow-2xl scale-110 animate-pulse-slow';
+  } else if (isDownstream) {
+    highlightClass = 'ring-2 ring-gray-500/50 shadow-lg shadow-gray-400/40 scale-105';
+  }
   
   return (
-    <div className={`px-3 py-2 shadow-md rounded-full border-2 min-w-[80px] ${colors.bg} ${colors.border}`}>
-      <Handle type="target" position={Position.Left} className="w-3 h-3" />
-      <Handle type="source" position={Position.Right} className="w-3 h-3" />
-      <Handle type="source" position={Position.Top} className="w-3 h-3" />
-      <Handle type="source" position={Position.Bottom} className="w-3 h-3" />
+    <div className={`px-3 py-2 rounded-full border-2 min-w-[80px] ${colors.bg} ${colors.border} ${highlightClass} transition-all duration-150`}>
+      <Handle type="target" position={Position.Left} className="w-3 h-3" style={{ opacity: showHandles ? 1 : 0 }} />
+      <Handle type="source" position={Position.Right} className="w-3 h-3" style={{ opacity: showHandles ? 1 : 0 }} />
+      <Handle type="source" position={Position.Top} className="w-3 h-3" style={{ opacity: showHandles ? 1 : 0 }} />
+      <Handle type="source" position={Position.Bottom} className="w-3 h-3" style={{ opacity: showHandles ? 1 : 0 }} />
       
       <div className="flex items-center gap-2">
         <Circle className={`w-4 h-4 ${colors.text}`} />

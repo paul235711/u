@@ -5,7 +5,6 @@
 
 'use client';
 
-import { GasLegend } from './GasLegend';
 import { NetworkStatsPanel } from './NetworkStatsPanel';
 import { NetworkFilterPanel, createDefaultFilters } from './NetworkFilterPanel';
 import { useUIStore } from '../../stores/ui-store';
@@ -30,7 +29,6 @@ export function LayoutEditorSidebar({
   
   const showStats = useUIStore((state) => state.panels.stats);
   const showFilters = useUIStore((state) => state.panels.filters);
-  const showLegend = useUIStore((state) => state.panels.legend);
   
   // Local state for filters (could be moved to Zustand if needed)
   const [filters, setFilters] = useState(createDefaultFilters());
@@ -58,15 +56,13 @@ export function LayoutEditorSidebar({
           filters={filters}
           onChange={setFilters}
           onReset={() => setFilters(createDefaultFilters())}
+          nodes={layout.nodes || []}
+          connections={layout.connections || []}
+          siteId={siteId}
         />
       )}
 
-      {/* Legend */}
-      {showLegend && (
-        <div className="absolute bottom-4 left-4 z-10">
-          <GasLegend />
-        </div>
-      )}
+      {/* Legend is now in SynopticViewer */}
     </>
   );
 }

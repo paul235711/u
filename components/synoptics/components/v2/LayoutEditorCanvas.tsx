@@ -172,6 +172,7 @@ export function LayoutEditorCanvas({
         <SynopticViewer
           nodes={layout.nodes || []}
           connections={layout.connections || []}
+          siteId={layout.siteId}
           onNodeClick={handleNodeClick}
           onNodeDragEnd={isLocked ? undefined : handleNodeDragEnd}
           onConnectionCreate={isLocked ? undefined : handleConnectionCreate}

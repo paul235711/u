@@ -20,11 +20,22 @@ function getGasColor(gasType: string) {
 
 export const ValveNode = memo(({ data }: NodeProps) => {
   const colors = getGasColor(data.gasType);
+  const showHandles = data.editable !== false; // Show handles only in editable mode
+  const isSelected = data.isSelected === true;
+  const isDownstream = data.isDownstream === true;
+  
+  // Determine highlight style
+  let highlightClass = 'shadow-md';
+  if (isSelected) {
+    highlightClass = 'ring-4 ring-gray-900 ring-offset-2 shadow-2xl scale-110 animate-pulse-slow';
+  } else if (isDownstream) {
+    highlightClass = 'ring-2 ring-gray-500/50 shadow-lg shadow-gray-400/40 scale-105';
+  }
   
   return (
-    <div className={`px-2 py-1 shadow-md rounded border min-w-[60px] ${colors.bg} ${colors.border}`}>
-      <Handle type="target" position={Position.Left} className="w-2 h-2" />
-      <Handle type="source" position={Position.Right} className="w-2 h-2" />
+    <div className={`px-2 py-1 rounded border min-w-[60px] ${colors.bg} ${colors.border} ${highlightClass} transition-all duration-150`}>
+      <Handle type="target" position={Position.Left} className="w-2 h-2" style={{ opacity: showHandles ? 1 : 0 }} />
+      <Handle type="source" position={Position.Right} className="w-2 h-2" style={{ opacity: showHandles ? 1 : 0 }} />
       
       <div className="flex items-center justify-center gap-1">
         <ValveIcon className={`w-3 h-3 ${colors.text}`} />
