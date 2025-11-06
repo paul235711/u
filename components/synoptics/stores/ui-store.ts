@@ -7,6 +7,7 @@ import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 
 type ElementType = 'source' | 'valve' | 'fitting';
+type EdgeToolMode = 'select' | 'cut';
 
 interface QuickAddContext {
   elementType: ElementType;
@@ -17,6 +18,7 @@ interface UIState {
   // Editor state
   isLocked: boolean;
   isFullscreen: boolean;
+  edgeToolMode: EdgeToolMode;
   
   // Panel visibility
   panels: {
@@ -44,6 +46,8 @@ interface UIState {
   toggleLock: () => void;
   setLocked: (locked: boolean) => void;
   toggleFullscreen: () => void;
+  setEdgeToolMode: (mode: EdgeToolMode) => void;
+  toggleEdgeToolMode: () => void;
   togglePanel: (panel: keyof UIState['panels']) => void;
   setPanel: (panel: keyof UIState['panels'], visible: boolean) => void;
   selectElement: (id: string | null) => void;
@@ -76,6 +80,7 @@ export const useUIStore = create<UIState>()(
       // Initial state
       isLocked: true,
       isFullscreen: false,
+      edgeToolMode: 'select',
       panels: initialPanels,
       selectedElementId: null,
       dialogs: initialDialogs,
@@ -83,16 +88,45 @@ export const useUIStore = create<UIState>()(
 
       // Actions
       toggleLock: () =>
-        set((state) => ({ isLocked: !state.isLocked }), false, 'toggleLock'),
+        set(
+          (state) => {
+            const nextLocked = !state.isLocked;
+            return {
+              isLocked: nextLocked,
+              edgeToolMode: nextLocked ? 'select' : state.edgeToolMode,
+            };
+          },
+          false,
+          'toggleLock'
+        ),
 
       setLocked: (locked) =>
-        set({ isLocked: locked }, false, 'setLocked'),
+        set(
+          (state) => ({
+            isLocked: locked,
+            edgeToolMode: locked ? 'select' : state.edgeToolMode,
+          }),
+          false,
+          'setLocked'
+        ),
 
       toggleFullscreen: () =>
         set(
           (state) => ({ isFullscreen: !state.isFullscreen }),
           false,
           'toggleFullscreen'
+        ),
+
+      setEdgeToolMode: (mode) =>
+        set({ edgeToolMode: mode }, false, 'setEdgeToolMode'),
+
+      toggleEdgeToolMode: () =>
+        set(
+          (state) => ({
+            edgeToolMode: state.edgeToolMode === 'select' ? 'cut' : 'select',
+          }),
+          false,
+          'toggleEdgeToolMode'
         ),
 
       togglePanel: (panel) =>
@@ -163,6 +197,7 @@ export const useUIStore = create<UIState>()(
           {
             isLocked: true,
             isFullscreen: false,
+            edgeToolMode: 'select',
             panels: initialPanels,
             selectedElementId: null,
             dialogs: initialDialogs,

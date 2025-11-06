@@ -140,17 +140,27 @@ export function EquipmentManager({ siteId }: EquipmentManagerProps) {
     enabled: nodes.length > 0,
   });
 
-  // Fetch layouts to show layout names
-  const { data: layouts = [] } = useQuery({
-    queryKey: ['site-layouts', siteId],
+  // Fetch site info to expose layouts and coordinates
+  const { data: siteInfo } = useQuery({
+    queryKey: ['site-info', siteId],
     queryFn: async () => {
       const response = await fetch(`/api/synoptics/sites/${siteId}`);
-      if (!response.ok) return [];
-      const site = await response.json();
-      return site.layouts || [];
+      if (!response.ok) return null;
+      return response.json();
     },
     enabled: !!siteId,
   });
+
+  const layouts = siteInfo?.layouts ?? [];
+
+  const parseCoordinate = (value: unknown): number | undefined => {
+    if (value === null || value === undefined) return undefined;
+    const numeric = typeof value === 'string' ? parseFloat(value) : Number(value);
+    return Number.isFinite(numeric) ? numeric : undefined;
+  };
+
+  const siteLatitude = parseCoordinate(siteInfo?.latitude);
+  const siteLongitude = parseCoordinate(siteInfo?.longitude);
 
   // Fetch les détails des équipements (valves, sources, fittings)
   const { data: equipmentDetails = {} } = useQuery({
@@ -474,6 +484,8 @@ export function EquipmentManager({ siteId }: EquipmentManagerProps) {
             queryClient.invalidateQueries({ queryKey: ['site-equipment', siteId] });
             queryClient.invalidateQueries({ queryKey: ['equipment-details'] });
           }}
+          siteLatitude={siteLatitude}
+          siteLongitude={siteLongitude}
         />
       )}
 

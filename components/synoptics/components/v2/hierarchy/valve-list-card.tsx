@@ -12,6 +12,7 @@ interface ValveListCardProps {
   isLoading: boolean;
   isEditMode?: boolean;
   onEditValve?: (valve: ValveInfo) => void;
+  onValveClick?: (valve: ValveInfo) => void;
 }
 
 const CARD_STYLES = {
@@ -47,7 +48,7 @@ const TITLES = {
 /**
  * Card displaying list of valves for a location
  */
-export function ValveListCard({ valves, locationType, isLoading, isEditMode = false, onEditValve }: ValveListCardProps) {
+export function ValveListCard({ valves, locationType, isLoading, isEditMode = false, onEditValve, onValveClick }: ValveListCardProps) {
   const styles = CARD_STYLES[locationType];
   const title = TITLES[locationType];
   const hasValves = valves.length > 0;
@@ -68,7 +69,12 @@ export function ValveListCard({ valves, locationType, isLoading, isEditMode = fa
             return (
               <div
                 key={valve.id}
-                className={cn('flex items-center justify-between p-3 bg-white rounded-md border', styles.itemBorder)}
+                className={cn(
+                  'flex items-center justify-between p-3 bg-white rounded-md border hover:bg-gray-50 transition-colors',
+                  styles.itemBorder,
+                  onValveClick ? 'cursor-pointer' : ''
+                )}
+                onClick={() => onValveClick?.(valve)}
               >
                 <div className="flex items-center gap-2 flex-1">
                   {/* Gas Badge */}

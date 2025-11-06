@@ -1,0 +1,162 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { getUser } from '@/lib/db/queries';
+import { createMedia, getMediaByElement } from '@/lib/db/synoptics-queries';
+import { writeFile, mkdir } from 'fs/promises';
+import { join } from 'path';
+import { randomUUID } from 'crypto';
+import sharp from 'sharp';
+import { fileTypeFromBuffer } from 'file-type';
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ sourceId: string }> }
+) {
+  try {
+    const user = await getUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { sourceId } = await params;
+    const mediaList = await getMediaByElement(sourceId, 'source');
+    
+    const mediaWithUrls = mediaList.map((m) => ({
+      ...m,
+      fileUrl: m.storagePath,
+      fileType: m.mimeType,
+    }));
+
+    return NextResponse.json(mediaWithUrls);
+  } catch (error) {
+    console.error('Error fetching media:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ sourceId: string }> }
+) {
+  try {
+    const user = await getUser();
+    const { sourceId } = await params;
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const formData = await request.formData();
+    const file = formData.get('file') as File;
+    const elementType = formData.get('elementType') as string;
+
+    if (!file) {
+      return NextResponse.json({ error: 'No file provided' }, { status: 400 });
+    }
+
+    // Security: File size validation (10MB limit)
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+    if (file.size > MAX_FILE_SIZE) {
+      return NextResponse.json({ error: 'File size exceeds 10MB limit' }, { status: 400 });
+    }
+
+    // Convert to buffer for validation
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+
+    // Security: File type validation using magic bytes
+    const detectedType = await fileTypeFromBuffer(buffer);
+    const allowedTypes = [
+      'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/avif',
+      'image/tiff', 'image/bmp', 'application/pdf'
+    ];
+
+    if (!detectedType || !allowedTypes.includes(detectedType.mime)) {
+      return NextResponse.json({ error: 'Invalid file type detected' }, { status: 400 });
+    }
+
+    // Create optimized version for images
+    let processedBuffer = buffer;
+    let finalFileName: string;
+    let finalMimeType = detectedType.mime;
+
+    if (detectedType.mime.startsWith('image/') && detectedType.mime !== 'image/gif') {
+      try {
+        const image = sharp(buffer);
+        const metadata = await image.metadata();
+
+        const maxWidth = 1920;
+        const maxHeight = 1080;
+
+        let resizeOptions: any = {};
+        if (metadata.width! > maxWidth || metadata.height! > maxHeight) {
+          resizeOptions = {
+            width: maxWidth,
+            height: maxHeight,
+            fit: 'inside',
+            withoutEnlargement: true
+          };
+        }
+
+        processedBuffer = await image
+          .resize(resizeOptions)
+          .webp({ quality: 85, effort: 6 })
+          .toBuffer();
+
+        finalMimeType = 'image/webp';
+        const fileExtension = 'webp';
+        finalFileName = `${randomUUID()}.${fileExtension}`;
+
+      } catch (error) {
+        console.warn('Image processing failed, using original:', error);
+        finalFileName = `${randomUUID()}.${file.name.split('.').pop()}`;
+      }
+    } else {
+      finalFileName = `${randomUUID()}.${file.name.split('.').pop()}`;
+    }
+
+    // Create uploads directory if it doesn't exist
+    const uploadsDir = join(process.cwd(), 'public', 'uploads', 'media');
+    await mkdir(uploadsDir, { recursive: true });
+
+    // Save processed file to disk
+    const filePath = join(uploadsDir, finalFileName);
+    await writeFile(filePath, processedBuffer);
+
+    // Create database entry with processed file info
+    const mediaData = {
+      siteId: '', // We'll need to get this from the source
+      elementId: sourceId,
+      elementType: elementType || 'source',
+      storagePath: `/uploads/media/${finalFileName}`,
+      fileName: file.name,
+      mimeType: finalMimeType,
+    };
+
+    // Get siteId from source
+    const { getSourceById } = await import('@/lib/db/synoptics-queries');
+    const source = await getSourceById(sourceId);
+    if (!source) {
+      return NextResponse.json({ error: 'Source not found' }, { status: 404 });
+    }
+    mediaData.siteId = source.siteId;
+
+    const media = await createMedia(mediaData);
+
+    return NextResponse.json({
+      ...media,
+      optimized: finalMimeType !== detectedType.mime,
+      originalSize: buffer.length,
+      optimizedSize: processedBuffer.length,
+      compressionRatio: ((buffer.length - processedBuffer.length) / buffer.length * 100).toFixed(1)
+    }, { status: 201 });
+  } catch (error) {
+    console.error('Error uploading media:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}

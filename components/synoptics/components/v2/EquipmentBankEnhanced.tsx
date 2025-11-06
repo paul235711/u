@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Search, Plus, Droplet, Zap, Box, X, ChevronDown, ChevronRight, Edit2, Trash2, Loader2 } from 'lucide-react';
+import { Search, Plus, Zap, Box, X, ChevronDown, ChevronRight, Edit2, Trash2, Loader2 } from 'lucide-react';
+import ValveIcon from '../../icons/ValveIcon';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -11,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { GasTypeBadge } from './GasTypeBadge';
 import { useUIStore } from '../../stores/ui-store';
 import { useRouter } from 'next/navigation';
+import { EquipmentEditDialog } from './EquipmentEditDialog';
 
 interface EquipmentBankEnhancedProps {
   siteId: string;
@@ -42,6 +44,7 @@ export function EquipmentBankEnhanced({
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState<'all' | 'source' | 'valve' | 'fitting'>('all');
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
   
   // Create form state
   const [createType, setCreateType] = useState<'valve' | 'source' | 'fitting'>('valve');
@@ -233,7 +236,7 @@ export function EquipmentBankEnhanced({
                 onClick={() => setCreateType('valve')}
                 className="flex-1"
               >
-                <Droplet className="h-3 w-3" />
+                <ValveIcon className="h-3 w-3" />
               </Button>
               <Button
                 size="sm"
@@ -302,7 +305,7 @@ export function EquipmentBankEnhanced({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   {selectedElement.nodeType === 'source' && <Zap className="h-4 w-4 text-yellow-600" />}
-                  {selectedElement.nodeType === 'valve' && <Droplet className="h-4 w-4 text-blue-600" />}
+                  {selectedElement.nodeType === 'valve' && <ValveIcon className="h-4 w-4 text-blue-600" />}
                   {selectedElement.nodeType === 'fitting' && <Box className="h-4 w-4 text-purple-600" />}
                   <span className="font-medium text-sm">{selectedElement.name || 'Sans nom'}</span>
                 </div>
@@ -320,7 +323,7 @@ export function EquipmentBankEnhanced({
                   size="sm"
                   variant="outline"
                   className="flex-1 h-7"
-                  onClick={() => {/* TODO: Ouvrir EquipmentEditDialog */}}
+                  onClick={() => setShowEditDialog(true)}
                 >
                   <Edit2 className="h-3 w-3 mr-1" />
                   Modifier
@@ -376,7 +379,7 @@ export function EquipmentBankEnhanced({
             onClick={() => setSelectedType('valve')}
             className="h-7 px-2"
           >
-            <Droplet className="h-3 w-3" />
+            <ValveIcon className="h-3 w-3" />
           </Button>
           <Button
             variant={selectedType === 'source' ? 'default' : 'outline'}
@@ -423,7 +426,7 @@ export function EquipmentBankEnhanced({
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 mb-1">
                         {node.nodeType === 'source' && <Zap className="h-3 w-3 text-yellow-600 flex-shrink-0" />}
-                        {node.nodeType === 'valve' && <Droplet className="h-3 w-3 text-blue-600 flex-shrink-0" />}
+                        {node.nodeType === 'valve' && <ValveIcon className="h-3 w-3 text-blue-600 flex-shrink-0" />}
                         {node.nodeType === 'fitting' && <Box className="h-3 w-3 text-purple-600 flex-shrink-0" />}
                         <span className="font-medium text-xs truncate">
                           {details.name || 'Sans nom'}
@@ -448,6 +451,23 @@ export function EquipmentBankEnhanced({
           {availableNodes.length} disponible{availableNodes.length !== 1 ? 's' : ''}
         </p>
       </div>
+
+      {/* Equipment Edit Dialog */}
+      {showEditDialog && selectedElement && (
+        <EquipmentEditDialog
+          open={showEditDialog}
+          onOpenChange={setShowEditDialog}
+          node={selectedElement}
+          onSuccess={() => {
+            setShowEditDialog(false);
+            // Refresh equipment data
+            queryClient.invalidateQueries({ queryKey: ['site-equipment', siteId] });
+            queryClient.invalidateQueries({ queryKey: ['equipment-details'] });
+          }}
+          siteLatitude={parseFloat((selectedElement as any)?.siteLatitude ?? '') || undefined}
+          siteLongitude={parseFloat((selectedElement as any)?.siteLongitude ?? '') || undefined}
+        />
+      )}
     </div>
   );
 }

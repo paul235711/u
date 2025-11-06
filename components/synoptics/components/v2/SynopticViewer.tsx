@@ -22,16 +22,23 @@ import { ValveNode } from './nodes/valve-node';
 import { FittingNode } from './nodes/fitting-node';
 import { CustomEdge } from '../../custom-edge';
 
+type EdgeToolMode = 'select' | 'cut';
+
 interface SynopticViewerProps {
   nodes: any[];
   connections: any[];
   onNodeClick?: (node: Node) => void;
   onNodeDragEnd?: (nodeId: string, position: { x: number; y: number }) => void;
   onConnectionCreate?: (fromNodeId: string, toNodeId: string) => Promise<void>;
+  onConnectionDelete?: (
+    connectionId: string,
+    options?: { skipConfirm?: boolean }
+  ) => Promise<void>;
   onDrop?: (position: { x: number; y: number }) => void;
   editable?: boolean;
   visibleNodeIds?: Set<string>;
   highlightedNodeIds?: Set<string>;
+  edgeToolMode?: EdgeToolMode;
 }
 
 const GAS_COLORS = {
@@ -55,10 +62,12 @@ export function SynopticViewer({
   onNodeClick,
   onNodeDragEnd,
   onConnectionCreate,
+  onConnectionDelete,
   onDrop,
   editable = false,
   visibleNodeIds,
   highlightedNodeIds,
+  edgeToolMode = 'select',
 }: SynopticViewerProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const { screenToFlowPosition } = useReactFlow();
@@ -112,11 +121,13 @@ export function SynopticViewer({
     });
   }, [initialNodes, editable, visibleNodeIds, highlightedNodeIds]);
 
+  const cutModeActive = editable && edgeToolMode === 'cut';
+
   const flowEdges: Edge[] = useMemo(() => {
     return initialConnections.map((conn) => {
       const isVisible = (!visibleNodeIds || 
         (visibleNodeIds.has(conn.fromNodeId) && visibleNodeIds.has(conn.toNodeId)));
-      
+
       return {
         id: conn.id,
         source: conn.fromNodeId,
@@ -128,6 +139,7 @@ export function SynopticViewer({
           strokeWidth: 3,
           opacity: isVisible ? 1 : 0.15,
           transition: 'opacity 0.2s ease-in-out',
+          cursor: cutModeActive ? 'crosshair' : 'pointer',
         },
         label: conn.diameterMm ? `Ø${conn.diameterMm}mm` : undefined,
         labelStyle: { fontSize: 10, fill: '#666' },
@@ -135,7 +147,7 @@ export function SynopticViewer({
         data: conn,
       };
     });
-  }, [initialConnections, visibleNodeIds]);
+  }, [initialConnections, visibleNodeIds, cutModeActive]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(flowNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(flowEdges);
@@ -161,6 +173,36 @@ export function SynopticViewer({
       }
     },
     [editable, onConnectionCreate, setEdges]
+  );
+
+  const handleEdgesDelete = useCallback(
+    (edgesToRemove: Edge[]) => {
+      if (!cutModeActive) return;
+
+      if (edgesToRemove.length === 0) return;
+
+      if (onConnectionDelete) {
+        edgesToRemove.forEach((edge) => {
+          onConnectionDelete(edge.id, { skipConfirm: true });
+        });
+      }
+
+      setEdges((current) =>
+        current.filter((edge) => !edgesToRemove.some((removed) => removed.id === edge.id))
+      );
+    },
+    [cutModeActive, onConnectionDelete, setEdges]
+  );
+
+  const handleEdgeClick = useCallback(
+    (_event: React.MouseEvent, edge: Edge) => {
+      if (!cutModeActive) return;
+      if (onConnectionDelete) {
+        onConnectionDelete(edge.id, { skipConfirm: true });
+      }
+      setEdges((current) => current.filter((existing) => existing.id !== edge.id));
+    },
+    [cutModeActive, onConnectionDelete]
   );
 
   // Handle node drag end with auto-save
@@ -239,13 +281,15 @@ export function SynopticViewer({
       ref={reactFlowWrapper} 
       className={`w-full h-full bg-gray-50 relative transition-all ${
         isDraggingOver && editable ? 'ring-4 ring-blue-400 ring-inset' : ''
-      }`}
+      } ${cutModeActive ? 'cursor-crosshair' : ''}`}
     >
       <ReactFlow
         nodes={nodes}
         edges={edges}
         onNodesChange={editable ? onNodesChange : undefined}
         onEdgesChange={editable ? onEdgesChange : undefined}
+        onEdgesDelete={handleEdgesDelete}
+        onEdgeClick={handleEdgeClick}
         onConnect={handleConnect}
         onNodeClick={handleNodeClick}
         onNodeDragStop={handleNodeDragStop}

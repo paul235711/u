@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { useQuery } from '@tanstack/react-query';
 import { Loader2 } from 'lucide-react';
 import type { GasType } from '@/components/synoptics/hierarchy/gas-indicators';
+import { MediaDisplay } from './MediaDisplay';
 
 interface ValveListDialogProps {
   open: boolean;
@@ -101,9 +102,12 @@ export function ValveListDialog({
                 key={valve.id}
                 className="border rounded-lg p-4 hover:shadow-md transition-shadow"
               >
-                {/* Placeholder for future photo */}
-                <div className="w-full h-32 bg-gray-100 rounded-lg mb-3 flex items-center justify-center">
-                  <span className="text-gray-400 text-sm">Photo coming soon</span>
+                {/* Media Display */}
+                <div className="mb-3">
+                  <MediaDisplay
+                    elementId={valve.elementId}
+                    elementType="valve"
+                  />
                 </div>
                 
                 <div className="space-y-2">

@@ -276,6 +276,8 @@ export const nodes = pgTable('nodes', {
   zoneId: uuid('zone_id').references(() => zones.id, { onDelete: 'set null' }),
   zPosition: decimal('z_position', { precision: 10, scale: 2 }).default('0'),
   outletCount: integer('outlet_count').default(0),
+  latitude: decimal('latitude', { precision: 10, scale: 8 }),
+  longitude: decimal('longitude', { precision: 11, scale: 8 }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 

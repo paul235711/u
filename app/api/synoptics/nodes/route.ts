@@ -3,6 +3,8 @@ import { getUser } from '@/lib/db/queries';
 import { createNode, getNodesWithElementDataBySiteId } from '@/lib/db/synoptics-queries';
 import { z } from 'zod';
 
+const coordinateSchema = z.union([z.number(), z.string(), z.null()]).optional();
+
 const nodeSchema = z.object({
   siteId: z.string().uuid(),
   nodeType: z.enum(['source', 'valve', 'fitting']),
@@ -12,7 +14,21 @@ const nodeSchema = z.object({
   zoneId: z.string().uuid().optional().nullable(),
   zPosition: z.string().optional(),
   outletCount: z.number().int().optional(),
+  latitude: coordinateSchema,
+  longitude: coordinateSchema,
 });
+
+function normaliseCoordinate(value: number | string | null | undefined) {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+
+  const numericValue = typeof value === 'number' ? value : parseFloat(value);
+  if (!Number.isFinite(numericValue)) {
+    throw new Error('Invalid coordinate value');
+  }
+
+  return numericValue.toString();
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -27,9 +43,20 @@ export async function GET(request: NextRequest) {
     const buildingId = searchParams.get('buildingId');
     const floorId = searchParams.get('floorId');
 
-    if (!siteId) {
+    // Check if siteId is missing, empty, or the string 'undefined'
+    if (!siteId || siteId.trim() === '' || siteId === 'undefined' || siteId === 'null') {
       return NextResponse.json(
         { error: 'siteId is required' },
+        { status: 400 }
+      );
+    }
+
+    // Validate siteId is a valid UUID
+    try {
+      z.string().uuid().parse(siteId);
+    } catch (error) {
+      return NextResponse.json(
+        { error: 'siteId must be a valid UUID' },
         { status: 400 }
       );
     }
@@ -65,13 +92,31 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = nodeSchema.parse(body);
 
-    const node = await createNode(validatedData);
+    const { latitude, longitude, ...rest } = validatedData;
+
+    const normalisedLatitude = normaliseCoordinate(latitude);
+    const normalisedLongitude = normaliseCoordinate(longitude);
+
+    const nodePayload = {
+      ...rest,
+      ...(normalisedLatitude !== undefined ? { latitude: normalisedLatitude } : {}),
+      ...(normalisedLongitude !== undefined ? { longitude: normalisedLongitude } : {}),
+    };
+
+    const node = await createNode(nodePayload as any);
 
     return NextResponse.json(node, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: 'Invalid data', details: error.errors },
+        { status: 400 }
+      );
+    }
+
+    if (error instanceof Error && error.message === 'Invalid coordinate value') {
+      return NextResponse.json(
+        { error: 'Invalid data', details: [{ message: error.message }] },
         { status: 400 }
       );
     }

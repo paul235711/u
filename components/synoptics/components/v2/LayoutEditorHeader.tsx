@@ -6,7 +6,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { Lock, Unlock, Eye, EyeOff, Keyboard, Maximize2, Minimize2 } from 'lucide-react';
+import { Lock, Unlock, Eye, EyeOff, Keyboard, Maximize2, Minimize2, Scissors } from 'lucide-react';
 import { useUIStore } from '../../stores/ui-store';
 
 interface LayoutEditorHeaderProps {
@@ -16,8 +16,10 @@ interface LayoutEditorHeaderProps {
 export function LayoutEditorHeader({ layoutName }: LayoutEditorHeaderProps = {}) {
   const isLocked = useUIStore((state) => state.isLocked);
   const isFullscreen = useUIStore((state) => state.isFullscreen);
+  const edgeToolMode = useUIStore((state) => state.edgeToolMode);
   const toggleLock = useUIStore((state) => state.toggleLock);
   const toggleFullscreen = useUIStore((state) => state.toggleFullscreen);
+  const toggleEdgeToolMode = useUIStore((state) => state.toggleEdgeToolMode);
   
   const showStats = useUIStore((state) => state.panels.stats);
   const showFilters = useUIStore((state) => state.panels.filters);
@@ -44,6 +46,22 @@ export function LayoutEditorHeader({ layoutName }: LayoutEditorHeaderProps = {})
 
         {/* Action Buttons */}
         <div className="flex gap-2">
+          {/* Cut Connection Tool */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={toggleEdgeToolMode}
+            disabled={isLocked}
+            aria-pressed={edgeToolMode === 'cut'}
+            className={`${
+              edgeToolMode === 'cut' ? 'bg-red-50 border-red-300 text-red-600' : ''
+            } ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}`}
+            title={isLocked ? 'Unlock to cut connections' : 'Toggle cut connections tool'}
+          >
+            <Scissors className="mr-2 h-4 w-4" />
+            Cut tool
+          </Button>
+
           {/* Lock Toggle */}
           <Button
             variant={isLocked ? 'outline' : 'default'}

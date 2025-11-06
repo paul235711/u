@@ -28,6 +28,7 @@ export function LayoutEditorCanvas({
   const router = useRouter();
   const queryClient = useQueryClient();
   const isLocked = useUIStore((state) => state.isLocked);
+  const edgeToolMode = useUIStore((state) => state.edgeToolMode);
   const selectElement = useUIStore((state) => state.selectElement);
   const [showEquipmentBank, setShowEquipmentBank] = useState(false);
   
@@ -129,6 +130,29 @@ export function LayoutEditorCanvas({
     }
   }, [isLocked, layout.nodes, layout.siteId, router]);
 
+  const handleConnectionDelete = useCallback(async (
+    connectionId: string,
+    options?: { skipConfirm?: boolean }
+  ) => {
+    if (isLocked) return;
+
+    try {
+      if (!options?.skipConfirm) {
+        const confirmed = confirm('Supprimer cette connexion ?');
+        if (!confirmed) return;
+      }
+
+      await apiClient.deleteConnection(connectionId);
+
+      queryClient.invalidateQueries({ queryKey: ['layout', layoutId] });
+      queryClient.invalidateQueries({ queryKey: ['layout-positions', layoutId] });
+      router.refresh();
+    } catch (error) {
+      console.error('Failed to delete connection:', error);
+      alert('Failed to delete connection. Please try again.');
+    }
+  }, [isLocked, layoutId, queryClient, router]);
+
   return (
     <div className="relative flex h-full">
       {/* Main Canvas */}
@@ -151,6 +175,8 @@ export function LayoutEditorCanvas({
           onNodeClick={handleNodeClick}
           onNodeDragEnd={isLocked ? undefined : handleNodeDragEnd}
           onConnectionCreate={isLocked ? undefined : handleConnectionCreate}
+          onConnectionDelete={isLocked ? undefined : handleConnectionDelete}
+          edgeToolMode={isLocked ? 'select' : edgeToolMode}
           editable={!isLocked}
         />
       </div>

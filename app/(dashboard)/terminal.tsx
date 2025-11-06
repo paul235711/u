@@ -16,9 +16,6 @@ export function Terminal() {
     'export en pdf',
     'export ajout des photos',
     'mode offline',
-    'git add .',
-    'git commit -m "feat: update synoptics schema to use siteId"',
-    'git push origin main 🚀',
   ];
 
   useEffect(() => {

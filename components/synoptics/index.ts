@@ -65,6 +65,7 @@ export { ValveListDialog } from './components/v2/ValveListDialog';
 export { AllGasIndicators } from './components/v2/AllGasIndicators';
 export { GasTypeBadge } from './components/v2/GasTypeBadge';
 export { LayoutBadge } from './components/v2/LayoutBadge';
+export { SiteEquipmentMap } from './components/v2/SiteEquipmentMap';
 
 // ========================================
 // Backward Compatibility Aliases

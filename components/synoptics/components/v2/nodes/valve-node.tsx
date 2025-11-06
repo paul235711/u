@@ -2,7 +2,7 @@
 
 import { memo } from 'react';
 import { Handle, Position, NodeProps } from '@xyflow/react';
-import { Gauge } from 'lucide-react';
+import ValveIcon from '../../../icons/ValveIcon';
 
 const GAS_COLORS: Record<string, { bg: string; border: string; text: string }> = {
   oxygen: { bg: 'bg-red-100', border: 'border-red-500', text: 'text-red-700' },
@@ -19,25 +19,18 @@ function getGasColor(gasType: string) {
 }
 
 export const ValveNode = memo(({ data }: NodeProps) => {
-  const isOpen = data.state === 'open';
   const colors = getGasColor(data.gasType);
   
   return (
-    <div className={`px-3 py-2 shadow-lg rounded-md border-2 min-w-[100px] ${colors.bg} ${colors.border}`}>
-      <Handle type="target" position={Position.Left} className="w-3 h-3" />
-      <Handle type="source" position={Position.Right} className="w-3 h-3" />
+    <div className={`px-2 py-1 shadow-md rounded border min-w-[60px] ${colors.bg} ${colors.border}`}>
+      <Handle type="target" position={Position.Left} className="w-2 h-2" />
+      <Handle type="source" position={Position.Right} className="w-2 h-2" />
       
-      <div className="flex items-center gap-2">
-        <Gauge className={`w-4 h-4 ${colors.text}`} />
-        <div>
-          <div className={`text-xs font-semibold ${colors.text}`}>
-            {data.label}
-            <span className="ml-1 text-[9px]">({isOpen ? 'Open' : 'Closed'})</span>
-          </div>
-          <div className="text-[10px] text-gray-600 capitalize">
-            {data.gasType?.replace(/_/g, ' ')}
-          </div>
-        </div>
+      <div className="flex items-center justify-center gap-1">
+        <ValveIcon className={`w-3 h-3 ${colors.text}`} />
+        <span className={`text-xs font-bold ${colors.text}`}>
+          {data.label}
+        </span>
       </div>
     </div>
   );

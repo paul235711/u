@@ -116,6 +116,8 @@ class SynopticsAPIClient {
     floorId: string | null;
     zoneId: string | null;
     outletCount: number;
+    latitude: number;
+    longitude: number;
   }>) {
     return this.request(`/nodes/${id}`, {
       method: 'PUT',
