@@ -98,17 +98,20 @@ export function SynopticViewer({
       // Handle position - it could be in different formats
       let xPos = 0;
       let yPos = 0;
+      let rotation = 0;
       
       if (node.position) {
         // If position has xPosition/yPosition (from database)
         if ('xPosition' in node.position && 'yPosition' in node.position) {
           xPos = parseFloat(node.position.xPosition) || 0;
           yPos = parseFloat(node.position.yPosition) || 0;
+          rotation = parseInt(node.position.rotation) || 0;
         }
         // If position has x/y (from local state updates)
         else if ('x' in node.position && 'y' in node.position) {
           xPos = parseFloat(node.position.x) || 0;
           yPos = parseFloat(node.position.y) || 0;
+          rotation = parseInt(node.position.rotation) || 0;
         }
       }
       
@@ -122,6 +125,7 @@ export function SynopticViewer({
         data: {
           ...node,
           label: node.name || node.label || `${node.nodeType} ${node.id.slice(0, 8)}`,
+          rotation, // Pass rotation to node
           isVisible,
           isHighlighted,
           isSelected,
@@ -380,8 +384,8 @@ export function SynopticViewer({
   // Handle node click
   const handleNodeClick = useCallback(
     (_event: React.MouseEvent, node: Node) => {
-      // In non-editable mode, open details panel
-      if (!editable) {
+      // In non-editable mode, open details panel (but not for annotations)
+      if (!editable && node.type !== 'annotation') {
         setSelectedNodeId(node.id);
         setSelectedNodeData(node.data);
       }

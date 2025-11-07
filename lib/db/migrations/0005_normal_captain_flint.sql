@@ -1,0 +1,1 @@
+ALTER TABLE "node_positions" ADD COLUMN "rotation" integer DEFAULT 0;

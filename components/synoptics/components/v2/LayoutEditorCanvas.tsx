@@ -312,6 +312,7 @@ export function LayoutEditorCanvas({
         <EquipmentBankEnhanced
           siteId={layout.siteId}
           layoutId={layoutId}
+          layout={layout}
           onAddToLayout={(nodeId: string) => {
             addToLayoutMutation.mutate(nodeId);
           }}

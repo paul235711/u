@@ -674,9 +674,11 @@ export async function getLayoutWithNodesAndConnections(layoutId: string) {
         position: positionData ? {
           xPosition: positionData.xPosition,
           yPosition: positionData.yPosition,
+          rotation: positionData.rotation || 0,
         } : {
           xPosition: '0',
           yPosition: '0',
+          rotation: 0,
         },
       };
       console.log('🔍 Final node data:', {

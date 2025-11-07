@@ -8,6 +8,7 @@ const updatePositionSchema = z.object({
   layoutId: z.string().uuid(),
   xPosition: z.number(),
   yPosition: z.number(),
+  rotation: z.number().int().min(0).max(360).optional(),
 });
 
 export async function PUT(request: NextRequest) {
@@ -28,6 +29,7 @@ export async function PUT(request: NextRequest) {
       {
         xPosition: validatedData.xPosition.toString(),
         yPosition: validatedData.yPosition.toString(),
+        ...(validatedData.rotation !== undefined && { rotation: validatedData.rotation }),
       }
     );
 
@@ -40,6 +42,7 @@ export async function PUT(request: NextRequest) {
         layoutId: validatedData.layoutId,
         xPosition: validatedData.xPosition.toString(),
         yPosition: validatedData.yPosition.toString(),
+        rotation: validatedData.rotation ?? 0,
       });
     }
 

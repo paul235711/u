@@ -19,10 +19,11 @@ function getGasColor(gasType: string) {
 }
 
 export const FittingNode = memo(({ data }: NodeProps) => {
-  const colors = getGasColor(data.gasType);
+  const colors = getGasColor(data.gasType as string);
   const showHandles = data.editable !== false; // Show handles only in editable mode
   const isSelected = data.isSelected === true;
   const isDownstream = data.isDownstream === true;
+  const rotation = (data.rotation as number) || 0; // 0, 90, 180, 270
   
   // Determine highlight style
   let highlightClass = 'shadow-md';
@@ -33,7 +34,10 @@ export const FittingNode = memo(({ data }: NodeProps) => {
   }
   
   return (
-    <div className={`px-3 py-2 rounded-full border-2 min-w-[80px] ${colors.bg} ${colors.border} ${highlightClass} transition-all duration-150`}>
+    <div 
+      className={`px-3 py-2 rounded-full border-2 min-w-[80px] ${colors.bg} ${colors.border} ${highlightClass} transition-all duration-150`}
+      style={{ transform: `rotate(${rotation}deg)` }}
+    >
       <Handle type="target" position={Position.Left} className="w-3 h-3" style={{ opacity: showHandles ? 1 : 0 }} />
       <Handle type="source" position={Position.Right} className="w-3 h-3" style={{ opacity: showHandles ? 1 : 0 }} />
       <Handle type="source" position={Position.Top} className="w-3 h-3" style={{ opacity: showHandles ? 1 : 0 }} />
@@ -42,9 +46,9 @@ export const FittingNode = memo(({ data }: NodeProps) => {
       <div className="flex items-center gap-2">
         <Circle className={`w-4 h-4 ${colors.text}`} />
         <div>
-          <div className={`text-xs font-semibold ${colors.text}`}>{data.label || 'Fitting'}</div>
+          <div className={`text-xs font-semibold ${colors.text}`}>{(data.label as string) || 'Fitting'}</div>
           <div className="text-[10px] text-gray-600 capitalize">
-            {data.gasType?.replace(/_/g, ' ')}
+            {(data.gasType as string)?.replace(/_/g, ' ')}
           </div>
         </div>
       </div>

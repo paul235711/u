@@ -13,6 +13,7 @@ const nodePositionSchema = z.object({
   y: z.number().optional(),
   xPosition: z.number().optional(),
   yPosition: z.number().optional(),
+  rotation: z.number().int().min(0).max(360).optional(),
 }).refine(data => {
   // At least one set of coordinates must be provided
   return (data.x !== undefined && data.y !== undefined) || 
@@ -75,12 +76,14 @@ export async function POST(request: NextRequest) {
     // Support both x/y and xPosition/yPosition
     const x = validatedData.x ?? validatedData.xPosition ?? 0;
     const y = validatedData.y ?? validatedData.yPosition ?? 0;
+    const rotation = validatedData.rotation ?? 0;
 
     const position = await createNodePosition({
       nodeId: validatedData.nodeId,
       layoutId: validatedData.layoutId,
       xPosition: x.toString(),
       yPosition: y.toString(),
+      rotation,
     });
 
     return NextResponse.json(position, { status: 201 });

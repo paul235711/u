@@ -292,6 +292,7 @@ export const nodePositions = pgTable('node_positions', {
     .references(() => layouts.id, { onDelete: 'cascade' }),
   xPosition: decimal('x_position', { precision: 10, scale: 2 }).notNull(),
   yPosition: decimal('y_position', { precision: 10, scale: 2 }).notNull(),
+  rotation: integer('rotation').default(0), // 0, 90, 180, 270 degrees
 }, (table: any) => ({
   pk: { primaryKey: [table.nodeId, table.layoutId] },
 }));
