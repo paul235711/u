@@ -97,9 +97,9 @@ export function NodeDetailsPanel({ node, siteId, onClose }: NodeDetailsPanelProp
           {/* Name */}
           <div>
             <h3 className="text-xl font-bold text-gray-900 mb-1">
-              {node.name || node.label || `${nodeTypeLabel} ${node.id.slice(0, 8)}`}
+              {node.name || node.label || `${nodeTypeLabel} ${node.id?.slice(0, 8) || 'N/A'}`}
             </h3>
-            <p className="text-sm text-gray-500">ID: {node.id.slice(0, 12)}...</p>
+            <p className="text-sm text-gray-500">ID: {node.id?.slice(0, 12) || 'N/A'}...</p>
           </div>
 
           {/* Media Display */}

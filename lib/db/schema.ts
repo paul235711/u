@@ -156,6 +156,7 @@ export enum ActivityType {
 // Enums for synoptics
 export const layoutTypeEnum = pgEnum('layout_type', ['site', 'floor', 'zone']);
 export const nodeTypeEnum = pgEnum('node_type', ['source', 'valve', 'fitting']);
+export const annotationTypeEnum = pgEnum('annotation_type', ['building', 'floor', 'zone', 'service', 'label']);
 
 // Organizations (maps to teams for multi-tenancy)
 export const organizations = pgTable('organizations', {
@@ -327,6 +328,27 @@ export const media = pgTable('media', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+// Annotations (zones, labels for layouts)
+export const annotations = pgTable('annotations', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  layoutId: uuid('layout_id')
+    .notNull()
+    .references(() => layouts.id, { onDelete: 'cascade' }),
+  annotationType: annotationTypeEnum('annotation_type').notNull(),
+  title: text('title').notNull(),
+  subtitle: text('subtitle'),
+  positionX: decimal('position_x', { precision: 10, scale: 2 }).notNull(),
+  positionY: decimal('position_y', { precision: 10, scale: 2 }).notNull(),
+  sizeWidth: decimal('size_width', { precision: 10, scale: 2 }),
+  sizeHeight: decimal('size_height', { precision: 10, scale: 2 }),
+  color: text('color'),
+  style: text('style'),
+  interactive: integer('interactive').default(0),
+  metadata: jsonb('metadata'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 // Relations for synoptics
 export const organizationsRelations = relations(organizations, ({ one, many }: any) => ({
   team: one(teams, {
@@ -414,6 +436,25 @@ export const connectionsRelations = relations(connections, ({ one }: any) => ({
   }),
 }));
 
+export const annotationsRelations = relations(annotations, ({ one }: any) => ({
+  layout: one(layouts, {
+    fields: [annotations.layoutId],
+    references: [layouts.id],
+  }),
+}));
+
+export const layoutsRelations = relations(layouts, ({ one, many }: any) => ({
+  site: one(sites, {
+    fields: [layouts.siteId],
+    references: [sites.id],
+  }),
+  floor: one(floors, {
+    fields: [layouts.floorId],
+    references: [floors.id],
+  }),
+  annotations: many(annotations),
+}));
+
 // Type exports for synoptics
 export type Organization = typeof organizations.$inferSelect;
 export type NewOrganization = typeof organizations.$inferInsert;
@@ -441,3 +482,5 @@ export type Connection = typeof connections.$inferSelect;
 export type NewConnection = typeof connections.$inferInsert;
 export type Media = typeof media.$inferSelect;
 export type NewMedia = typeof media.$inferInsert;
+export type Annotation = typeof annotations.$inferSelect;
+export type NewAnnotation = typeof annotations.$inferInsert;

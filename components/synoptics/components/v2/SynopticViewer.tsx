@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useRef, useEffect, useState } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import {
   ReactFlow,
   Background,
@@ -18,9 +18,11 @@ import '@xyflow/react/dist/style.css';
 import { SourceNode } from './nodes/source-node';
 import { ValveNode } from './nodes/valve-node';
 import { FittingNode } from './nodes/fitting-node';
+import { AnnotationNode } from './nodes/annotation-node';
 import { NodeDetailsPanel } from './NodeDetailsPanel';
 import { SynopticLegend } from './SynopticLegend';
 import { useDownstreamNodes } from './hooks/useDownstreamNodes';
+import { Annotation } from './AnnotationLayer';
 
 type EdgeToolMode = 'select' | 'cut';
 
@@ -30,7 +32,7 @@ interface SynopticViewerProps {
   siteId?: string;
   onNodeClick?: (node: Node) => void;
   onNodeDragEnd?: (nodeId: string, position: { x: number; y: number }) => void;
-  onConnectionCreate?: (fromNodeId: string, toNodeId: string) => Promise<void>;
+  onConnectionCreate?: (fromNodeId: string, toNodeId: string) => Promise<string | void>;
   onConnectionDelete?: (
     connectionId: string,
     options?: { skipConfirm?: boolean }
@@ -40,6 +42,9 @@ interface SynopticViewerProps {
   visibleNodeIds?: Set<string>;
   highlightedNodeIds?: Set<string>;
   edgeToolMode?: EdgeToolMode;
+  // Annotations (ReactFlow nodes)
+  annotations?: Annotation[];
+  showAnnotations?: boolean;
 }
 
 const GAS_COLORS = {
@@ -70,6 +75,8 @@ export function SynopticViewer({
   visibleNodeIds,
   highlightedNodeIds,
   edgeToolMode = 'select',
+  annotations = [],
+  showAnnotations = true,
 }: SynopticViewerProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const { screenToFlowPosition } = useReactFlow();
@@ -181,10 +188,59 @@ export function SynopticViewer({
   const [nodes, setNodes, onNodesChange] = useNodesState(flowNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(flowEdges);
 
-  // Update nodes when initialNodes change
+  // Combine equipment nodes and annotation nodes
   useEffect(() => {
-    setNodes(flowNodes);
-  }, [flowNodes, setNodes]);
+    const equipmentNodes = flowNodes;
+    
+    const annotationNodes = (annotations && showAnnotations)
+      ? annotations.map((ann) => ({
+          id: `annotation-${ann.id}`,
+          type: 'annotation' as const,
+          position: ann.position,
+          // Zones (rectangles) en arrière-plan, textes au premier plan
+          zIndex: ann.type === 'zone' ? -1 : 1000,
+          data: {
+            annotationId: ann.id,
+            type: ann.type,
+            title: ann.title,
+            color: ann.color,
+            width: ann.size?.width,
+            height: ann.size?.height,
+            editable: editable,
+            onUpdate: async (updates: { size?: { width: number; height: number } }) => {
+              // Update via API
+              try {
+                const response = await fetch(`/api/synoptics/annotations/${ann.id}`, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    type: ann.type,
+                    title: ann.title,
+                    position: ann.position,
+                    size: updates.size || ann.size,
+                    color: ann.color,
+                  }),
+                });
+                
+                if (response.ok) {
+                  // Trigger parent refresh to update annotation with new size
+                  if (typeof window !== 'undefined' && (window as any).__refreshAnnotations) {
+                    (window as any).__refreshAnnotations();
+                  }
+                }
+              } catch (error) {
+                console.error('Failed to update annotation:', error);
+              }
+            },
+          },
+          draggable: editable, // Déplaçable uniquement en mode édition
+          selectable: editable, // Sélectionnable uniquement en mode édition
+        }))
+      : [];
+
+    // Annotations d'abord (derrière), puis équipements (devant)
+    setNodes([...annotationNodes, ...equipmentNodes]);
+  }, [flowNodes, annotations, showAnnotations, editable, setNodes]);
 
   // Update edges when initialConnections change
   useEffect(() => {
@@ -195,13 +251,55 @@ export function SynopticViewer({
   const handleConnect: OnConnect = useCallback(
     async (params: Connection) => {
       if (editable && params.source && params.target && onConnectionCreate) {
-        // Add edge to UI immediately
-        setEdges((eds) => addEdge(params, eds));
-        // Save to database
-        await onConnectionCreate(params.source, params.target);
+        // Find nodes to get gas type
+        const sourceNode = initialNodes.find((n: any) => n.id === params.source);
+        const targetNode = initialNodes.find((n: any) => n.id === params.target);
+        const gasType = sourceNode?.gasType || 'default';
+        
+        // Generate temporary edge ID
+        const tempEdgeId = `temp-${params.source}-${params.target}-${Date.now()}`;
+        const tempEdge = {
+          id: tempEdgeId,
+          source: params.source!,
+          target: params.target!,
+          sourceHandle: params.sourceHandle ?? null,
+          targetHandle: params.targetHandle ?? null,
+          type: 'smoothstep',
+          style: {
+            stroke: getGasColor(gasType),
+            strokeWidth: 3,
+            opacity: 0.9,
+          },
+        };
+        
+        // Add edge to UI immediately (optimistic update)
+        setEdges((eds) => addEdge(tempEdge as any, eds));
+        
+        try {
+          // Save to database and get real connection ID
+          const realConnectionId = await onConnectionCreate(params.source!, params.target!);
+          
+          if (realConnectionId && typeof realConnectionId === 'string') {
+            // Replace temp ID with real ID from database
+            setEdges((eds) => 
+              eds.map(e => e.id === tempEdgeId ? { ...e, id: realConnectionId } : e)
+            );
+          } else {
+            // If no ID returned, remove temp edge and let router.refresh handle it
+            setEdges((eds) => eds.filter(e => e.id !== tempEdgeId));
+          }
+        } catch (error) {
+          console.error('Failed to create connection:', error);
+          
+          // Rollback: Remove the temporary edge from UI
+          setEdges((eds) => eds.filter(e => e.id !== tempEdgeId));
+          
+          // Show error to user
+          alert('Failed to create connection. Please try again.');
+        }
       }
     },
-    [editable, onConnectionCreate, setEdges]
+    [editable, onConnectionCreate, setEdges, initialNodes]
   );
 
   const handleEdgesDelete = useCallback(
@@ -236,12 +334,47 @@ export function SynopticViewer({
 
   // Handle node drag end with auto-save
   const handleNodeDragStop = useCallback(
-    (_event: any, node: any) => {
-      if (editable && onNodeDragEnd) {
+    async (_event: any, node: any) => {
+      // Handle annotation node drag
+      if (node.type === 'annotation' && node.data.annotationId) {
+        const annotation = annotations?.find(a => a.id === node.data.annotationId);
+        if (annotation) {
+          try {
+            const response = await fetch(`/api/synoptics/annotations/${annotation.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                type: annotation.type,
+                title: annotation.title,
+                position: node.position,
+                size: annotation.size,
+                color: annotation.color,
+              }),
+            });
+            
+            if (response.ok) {
+              // Update local annotations state to persist position
+              if (annotations && typeof window !== 'undefined') {
+                const updated = annotations.map(a => 
+                  a.id === annotation.id ? { ...a, position: node.position } : a
+                );
+                // Trigger parent refresh if available
+                if ((window as any).__refreshAnnotations) {
+                  (window as any).__refreshAnnotations();
+                }
+              }
+            }
+          } catch (error) {
+            console.error('Failed to save annotation position:', error);
+          }
+        }
+      }
+      // Handle equipment node drag
+      else if (editable && onNodeDragEnd) {
         onNodeDragEnd(node.id, node.position);
       }
     },
-    [editable, onNodeDragEnd]
+    [editable, onNodeDragEnd, annotations]
   );
 
   // Handle node click
@@ -298,6 +431,7 @@ export function SynopticViewer({
       source: SourceNode,
       valve: ValveNode,
       fitting: FittingNode,
+      annotation: AnnotationNode,
     }),
     []
   );

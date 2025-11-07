@@ -19,6 +19,7 @@ interface UIState {
   isLocked: boolean;
   isFullscreen: boolean;
   edgeToolMode: EdgeToolMode;
+  annotationMode: boolean;
   
   // Panel visibility
   panels: {
@@ -48,6 +49,8 @@ interface UIState {
   toggleFullscreen: () => void;
   setEdgeToolMode: (mode: EdgeToolMode) => void;
   toggleEdgeToolMode: () => void;
+  toggleAnnotationMode: () => void;
+  setAnnotationMode: (enabled: boolean) => void;
   togglePanel: (panel: keyof UIState['panels']) => void;
   setPanel: (panel: keyof UIState['panels'], visible: boolean) => void;
   selectElement: (id: string | null) => void;
@@ -81,6 +84,7 @@ export const useUIStore = create<UIState>()(
       isLocked: true,
       isFullscreen: false,
       edgeToolMode: 'select',
+      annotationMode: false,
       panels: initialPanels,
       selectedElementId: null,
       dialogs: initialDialogs,
@@ -127,6 +131,20 @@ export const useUIStore = create<UIState>()(
           }),
           false,
           'toggleEdgeToolMode'
+        ),
+
+      toggleAnnotationMode: () =>
+        set(
+          (state) => ({ annotationMode: !state.annotationMode }),
+          false,
+          'toggleAnnotationMode'
+        ),
+
+      setAnnotationMode: (enabled) =>
+        set(
+          { annotationMode: enabled },
+          false,
+          'setAnnotationMode'
         ),
 
       togglePanel: (panel) =>
