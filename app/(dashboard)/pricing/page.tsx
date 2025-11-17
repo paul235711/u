@@ -12,8 +12,8 @@ export default async function PricingPage() {
     getStripeProducts(),
   ]);
 
-  const basePlan = products.find((product) => product.name === 'Base');
-  const plusPlan = products.find((product) => product.name === 'Plus');
+  const basePlan = products.find((product) => product.name === 'Plan mensuel');
+  const plusPlan = products.find((product) => product.name === 'Plan annuel');
 
   const basePrice = prices.find((price) => price.productId === basePlan?.id);
   const plusPrice = prices.find((price) => price.productId === plusPlan?.id);

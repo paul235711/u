@@ -518,10 +518,10 @@ export function SiteHierarchyManagerOptimized({ siteData, siteId, organizationId
           locationId={valveDialog.locationId}
           locationType={valveDialog.locationType}
           siteId={siteId}
-          organizationId={organizationId}
           onSuccess={() => {
-            queryClient.invalidateQueries({ queryKey: ['valve-counts', organizationId, siteId] });
-            queryClient.invalidateQueries({ queryKey: ['gas-indicators', organizationId, siteId] });
+            queryClient.invalidateQueries({ queryKey: ['valve-counts', siteId] });
+            queryClient.invalidateQueries({ queryKey: ['gas-indicators', siteId] });
+            queryClient.invalidateQueries({ queryKey: ['valves-list'] });
             router.refresh();
           }}
         />

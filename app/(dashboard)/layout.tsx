@@ -4,7 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { use, useState, Suspense } from 'react';
 import { Button } from '@/components/ui/button';
-import { Home, LogOut, Network } from 'lucide-react';
+import { Home, LogOut } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -95,13 +95,6 @@ function Header() {
           <span className="ml-2 text-xl font-semibold text-gray-900">VMap</span>
         </Link>
         <div className="flex items-center space-x-6">
-          <Link
-            href="/synoptics"
-            className="flex items-center text-sm font-medium text-gray-700 hover:text-gray-900"
-          >
-            <Network className="mr-2 h-4 w-4" />
-            Synoptics
-          </Link>
           <Suspense fallback={<div className="h-9" />}>
             <UserMenu />
           </Suspense>

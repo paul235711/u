@@ -451,11 +451,11 @@ function InviteTeamMember() {
             <p className="text-red-500">{inviteState.error}</p>
           )}
           {inviteState?.success && (
-            <p className="text-green-500">{inviteState.success}</p>
+            <p className="text-green-500 text-sm">{inviteState.success}</p>
           )}
           <Button
             type="submit"
-            className="bg-orange-500 hover:bg-orange-600 text-white"
+            className="bg-blue-600 hover:bg-blue-700 text-white"
             disabled={isInvitePending || !isOwner}
           >
             {isInvitePending ? (

@@ -114,7 +114,7 @@ export const signIn = validatedAction(signInSchema, async (data, formData) => {
     redirect('/onboarding');
   }
 
-  redirect('/dashboard');
+  redirect('/synoptics');
 });
 
 const signUpSchema = z.object({
@@ -236,7 +236,7 @@ export const signUp = validatedAction(signUpSchema, async (data, formData) => {
     return createCheckoutSession({ team: createdTeam, priceId });
   }
 
-  redirect('/dashboard');
+  redirect('/synoptics');
 });
 
 export async function signOut() {
