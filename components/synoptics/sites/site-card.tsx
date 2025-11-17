@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Building2, MapPin, MoreVertical, Pencil, Trash2, Check, X, Loader2 } from 'lucide-react';
+import { Building2, MapPin, MoreVertical, Pencil, Trash2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,6 +13,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { AddressSearch } from '@/components/mapbox/address-search';
+import { parseApiError, validateName, validateLatitude, validateLongitude } from '../shared/form-utils';
 import type { Site } from './use-sites-data';
 import { cn } from '@/lib/utils';
 
@@ -22,79 +32,65 @@ interface SiteCardProps {
 }
 
 export function SiteCard({ site, onUpdate, onDelete }: SiteCardProps) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [editedName, setEditedName] = useState(site.name);
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-  const inputRef = useRef<HTMLInputElement>(null);
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    name: site.name,
+    address: site.address || '',
+    latitude: site.latitude || '',
+    longitude: site.longitude || '',
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
-  // Auto-save on name change with debounce
+  // Sync edit form data when dialog opens
   useEffect(() => {
-    if (!isEditing) return;
-    if (editedName === site.name) return;
-    if (!editedName.trim()) return;
-
-    // Clear previous timeout
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
+    if (isEditDialogOpen) {
+      setEditFormData({
+        name: site.name,
+        address: site.address || '',
+        latitude: site.latitude || '',
+        longitude: site.longitude || '',
+      });
+      setFieldErrors({});
     }
+  }, [isEditDialogOpen, site]);
 
-    // Set saving status
-    setSaveStatus('saving');
-
-    // Debounce save
-    saveTimeoutRef.current = setTimeout(async () => {
-      try {
-        setIsSaving(true);
-        await onUpdate(site.id, { name: editedName });
-        setSaveStatus('saved');
-        
-        // Clear saved status after 2 seconds
-        setTimeout(() => {
-          setSaveStatus('idle');
-        }, 2000);
-      } catch (error) {
-        console.error('Failed to save:', error);
-        setSaveStatus('error');
-        setEditedName(site.name); // Revert on error
-      } finally {
-        setIsSaving(false);
-      }
-    }, 1000); // 1 second debounce
-
-    return () => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
-    };
-  }, [editedName, isEditing, site.id, site.name, onUpdate]);
-
-  // Focus input when entering edit mode
-  useEffect(() => {
-    if (isEditing && inputRef.current) {
-      inputRef.current.focus();
-      inputRef.current.select();
-    }
-  }, [isEditing]);
-
-  const handleStartEdit = (e: React.MouseEvent) => {
+  // Handle edit form submission
+  const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    e.stopPropagation();
-    setIsEditing(true);
-  };
+    setIsSubmitting(true);
+    setFieldErrors({});
 
-  const handleCancelEdit = () => {
-    setEditedName(site.name);
-    setIsEditing(false);
-    setSaveStatus('idle');
-  };
+    // Client-side validation
+    const errors: Record<string, string> = {};
+    
+    const nameError = validateName(editFormData.name, 'Site name');
+    if (nameError) errors.name = nameError;
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      setIsEditing(false);
-    } else if (e.key === 'Escape') {
-      handleCancelEdit();
+    if (editFormData.latitude) {
+      const latError = validateLatitude(editFormData.latitude);
+      if (latError) errors.latitude = latError;
+    }
+
+    if (editFormData.longitude) {
+      const lngError = validateLongitude(editFormData.longitude);
+      if (lngError) errors.longitude = lngError;
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      setIsSubmitting(false);
+      return;
+    }
+
+    try {
+      await onUpdate(site.id, editFormData);
+      setIsEditDialogOpen(false);
+    } catch (error) {
+      console.error('Failed to update site:', error);
+      // Could add error display here
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -105,67 +101,17 @@ export function SiteCard({ site, onUpdate, onDelete }: SiteCardProps) {
   };
 
   return (
+    <>
     <div className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-lg transition-shadow group relative">
       <div className="flex items-start justify-between">
         <div className="flex-1 min-w-0">
-          {isEditing ? (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Input
-                  ref={inputRef}
-                  value={editedName}
-                  onChange={(e) => setEditedName(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  className="text-lg font-semibold"
-                  disabled={isSaving}
-                />
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setIsEditing(false)}
-                  disabled={isSaving}
-                >
-                  <Check className="h-4 w-4" />
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={handleCancelEdit}
-                  disabled={isSaving}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-              <div className="flex items-center gap-2 text-xs">
-                {saveStatus === 'saving' && (
-                  <span className="text-gray-500 flex items-center gap-1">
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    Saving...
-                  </span>
-                )}
-                {saveStatus === 'saved' && (
-                  <span className="text-green-600 flex items-center gap-1">
-                    <Check className="h-3 w-3" />
-                    Saved
-                  </span>
-                )}
-                {saveStatus === 'error' && (
-                  <span className="text-red-600 flex items-center gap-1">
-                    <X className="h-3 w-3" />
-                    Failed to save
-                  </span>
-                )}
-              </div>
-            </div>
-          ) : (
-            <Link href={`/synoptics/sites/${site.id}`} className="block">
-              <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 truncate">
-                {site.name}
-              </h3>
-            </Link>
-          )}
+          <Link href={`/synoptics/sites/${site.id}`} className="block">
+            <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 truncate">
+              {site.name}
+            </h3>
+          </Link>
           
-          {site.address && !isEditing && (
+          {site.address && (
             <div className="mt-2 flex items-start text-sm text-gray-500">
               <MapPin className="mr-1 h-4 w-4 flex-shrink-0 mt-0.5" />
               <span className="truncate">{site.address}</span>
@@ -174,46 +120,146 @@ export function SiteCard({ site, onUpdate, onDelete }: SiteCardProps) {
         </div>
 
         <div className="flex items-center gap-2 ml-4">
-          {!isEditing && (
-            <>
-              <Building2 className="h-8 w-8 text-gray-400 group-hover:text-blue-500 flex-shrink-0" />
-              
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={(e) => e.preventDefault()}
-                  >
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={handleStartEdit}>
-                    <Pencil className="mr-2 h-4 w-4" />
-                    Edit Name
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={handleDelete}
-                    className="text-red-600 focus:text-red-600"
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Delete Site
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </>
-          )}
+          <>
+            <Building2 className="h-8 w-8 text-gray-400 group-hover:text-blue-500 flex-shrink-0" />
+            
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={(e) => e.preventDefault()}
+                >
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setIsEditDialogOpen(true)}>
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Edit
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={handleDelete}
+                  className="text-red-600 focus:text-red-600"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete Site
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </>
         </div>
       </div>
 
-      {!isEditing && (
-        <div className="mt-4 text-xs text-gray-400">
-          Created {new Date(site.createdAt).toLocaleDateString()}
-        </div>
-      )}
+      <div className="mt-4 text-xs text-gray-400">
+        Created {new Date(site.createdAt).toLocaleDateString()}
+      </div>
     </div>
+
+    <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>Edit Site</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleEditSubmit} className="space-y-4">
+          <div>
+            <Label htmlFor="edit-name">Site Name *</Label>
+            <Input
+              id="edit-name"
+              type="text"
+              required
+              value={editFormData.name}
+              onChange={(e) => {
+                setEditFormData({ ...editFormData, name: e.target.value });
+                if (fieldErrors.name) {
+                  setFieldErrors((prev) => ({ ...prev, name: '' }));
+                }
+              }}
+              className="mt-1"
+              aria-invalid={!!fieldErrors.name}
+              aria-describedby={fieldErrors.name ? 'edit-name-error' : undefined}
+            />
+            {fieldErrors.name && (
+              <p id="edit-name-error" className="text-xs text-red-600 mt-1" role="alert">
+                {fieldErrors.name}
+              </p>
+            )}
+          </div>
+
+          <div>
+            <Label>Address</Label>
+            <p className="text-xs text-gray-500 mt-1 mb-2">
+              Search for an address to auto-fill coordinates
+            </p>
+            <div className="mt-1">
+              <AddressSearch
+                onSelect={(result) => {
+                  setEditFormData({
+                    ...editFormData,
+                    address: result.address,
+                    latitude: result.latitude.toString(),
+                    longitude: result.longitude.toString(),
+                  });
+                }}
+                initialValue={editFormData.address}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="edit-latitude">Latitude (auto-filled)</Label>
+              <Input
+                id="edit-latitude"
+                type="text"
+                value={editFormData.latitude}
+                readOnly
+                className="mt-1 bg-gray-50 cursor-not-allowed"
+                aria-readonly="true"
+              />
+              {fieldErrors.latitude && (
+                <p className="text-xs text-red-600 mt-1" role="alert">
+                  {fieldErrors.latitude}
+                </p>
+              )}
+            </div>
+            <div>
+              <Label htmlFor="edit-longitude">Longitude (auto-filled)</Label>
+              <Input
+                id="edit-longitude"
+                type="text"
+                value={editFormData.longitude}
+                readOnly
+                className="mt-1 bg-gray-50 cursor-not-allowed"
+                aria-readonly="true"
+              />
+              {fieldErrors.longitude && (
+                <p className="text-xs text-red-600 mt-1" role="alert">
+                  {fieldErrors.longitude}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="flex gap-3 pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsEditDialogOpen(false)}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isSubmitting ? 'Saving...' : 'Update Site'}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }

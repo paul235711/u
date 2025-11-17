@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Building2, Plus, Loader2, RefreshCw, AlertCircle } from 'lucide-react';
+import { Building2, Plus, Loader2, AlertCircle } from 'lucide-react';
 import { SiteCard } from './site-card';
 import { CascadeDeleteDialog } from './cascade-delete-dialog';
 import { useSitesData } from './use-sites-data';
@@ -18,14 +18,12 @@ export function SitesManager({ organizationId }: SitesManagerProps) {
     sites,
     isLoading,
     error,
-    refetch,
     updateSite,
     deleteSite,
     checkCascadeDependencies,
   } = useSitesData({ organizationId, autoRefresh: false });
 
   const { toasts, showToast, removeToast } = useToast();
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState<{
     open: boolean;
     site: { id: string; name: string } | null;
@@ -33,18 +31,6 @@ export function SitesManager({ organizationId }: SitesManagerProps) {
     open: false,
     site: null,
   });
-
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    try {
-      await refetch();
-      showToast('Sites refreshed', 'success');
-    } catch (error) {
-      showToast('Failed to refresh sites', 'error');
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
 
   const handleUpdate = async (siteId: string, data: any) => {
     try {
@@ -99,10 +85,6 @@ export function SitesManager({ organizationId }: SitesManagerProps) {
             <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Failed to load sites</h3>
             <p className="text-sm text-gray-600 mb-6">{error}</p>
-            <Button onClick={handleRefresh}>
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Try Again
-            </Button>
           </div>
         </div>
       </div>
@@ -123,18 +105,6 @@ export function SitesManager({ organizationId }: SitesManagerProps) {
               </p>
             </div>
             <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleRefresh}
-                disabled={isRefreshing}
-              >
-                {isRefreshing ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <RefreshCw className="h-4 w-4" />
-                )}
-              </Button>
               <Button asChild>
                 <Link href="/synoptics/sites/new">
                   <Plus className="mr-2 h-4 w-4" />
