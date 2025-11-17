@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { SiteHierarchyManager, EquipmentManager, SiteEquipmentMap } from '@/components/synoptics';
-import { Building2, Box, MapPin } from 'lucide-react';
+import { SiteHierarchyManager, SiteEquipmentMap } from '@/components/synoptics';
+import { Building2, MapPin } from 'lucide-react';
 
 interface SiteDetailClientProps {
   siteData: any;
@@ -17,14 +17,10 @@ export function SiteDetailClient({ siteData, siteId, organizationId, layouts }: 
 
   return (
     <Tabs defaultValue="hierarchy" className="w-full">
-      <TabsList className="grid w-full max-w-lg grid-cols-3">
+      <TabsList className="grid w-full max-w-lg grid-cols-2">
         <TabsTrigger value="hierarchy" className="flex items-center gap-2">
           <Building2 className="h-4 w-4" />
           Hierarchy
-        </TabsTrigger>
-        <TabsTrigger value="equipment" className="flex items-center gap-2">
-          <Box className="h-4 w-4" />
-          Equipment
         </TabsTrigger>
         <TabsTrigger value="map" className="flex items-center gap-2">
           <MapPin className="h-4 w-4" />
@@ -38,12 +34,6 @@ export function SiteDetailClient({ siteData, siteId, organizationId, layouts }: 
           siteId={siteId}
           organizationId={organizationId}
           layouts={layouts}
-        />
-      </TabsContent>
-      
-      <TabsContent value="equipment" className="mt-6">
-        <EquipmentManager 
-          siteId={siteId}
         />
       </TabsContent>
 

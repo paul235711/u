@@ -10,7 +10,7 @@ interface EquipmentBankHeaderProps {
 export function EquipmentBankHeader({ onClose }: EquipmentBankHeaderProps) {
   return (
     <div className="p-3 border-b flex items-center justify-between bg-gray-50">
-      <h3 className="font-semibold text-sm">Équipements</h3>
+      <h3 className="font-semibold text-sm">Equipements</h3>
       <Button
         variant="ghost"
         size="sm"

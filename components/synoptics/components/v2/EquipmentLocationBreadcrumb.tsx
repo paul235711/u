@@ -6,9 +6,10 @@ import { Building2, Layers, Box, MapPin, ChevronRight } from 'lucide-react';
 interface EquipmentLocationBreadcrumbProps {
   node: any;
   siteId: string;
+  variant?: 'default' | 'compact';
 }
 
-export function EquipmentLocationBreadcrumb({ node, siteId }: EquipmentLocationBreadcrumbProps) {
+export function EquipmentLocationBreadcrumb({ node, siteId, variant = 'default' }: EquipmentLocationBreadcrumbProps) {
   // Fetch hierarchy to get location names
   const { data: hierarchyData, isLoading } = useQuery({
     queryKey: ['site-hierarchy', siteId],
@@ -60,16 +61,44 @@ export function EquipmentLocationBreadcrumb({ node, siteId }: EquipmentLocationB
     }
   }
 
-  // Zone
+  // Zone (and infer building/floor if only zoneId is set)
   if (node.zoneId) {
     let zone: any = null;
+    let zoneFloor: any = null;
+    let zoneBuilding: any = null;
+
     hierarchyData.buildings?.forEach((b: any) => {
       b.floors?.forEach((f: any) => {
         const z = f.zones?.find((z: any) => z.id === node.zoneId);
-        if (z) zone = z;
+        if (z) {
+          zone = z;
+          zoneFloor = f;
+          zoneBuilding = b;
+        }
       });
     });
+
     if (zone) {
+      // If node doesn't explicitly carry buildingId/floorId but we can infer them from the zone,
+      // prepend building and floor so the breadcrumb shows the full path.
+      if (!node.buildingId && zoneBuilding) {
+        parts.push(
+          <div key="zone-building" className="flex items-center gap-1">
+            <Building2 className="h-3 w-3 text-gray-400" />
+            <span>{zoneBuilding.name}</span>
+          </div>
+        );
+      }
+
+      if (!node.floorId && zoneFloor) {
+        parts.push(
+          <div key="zone-floor" className="flex items-center gap-1">
+            <Layers className="h-3 w-3 text-gray-400" />
+            <span>{zoneFloor.name}</span>
+          </div>
+        );
+      }
+
       parts.push(
         <div key="zone" className="flex items-center gap-1">
           <Box className="h-3 w-3 text-gray-400" />
@@ -77,6 +106,28 @@ export function EquipmentLocationBreadcrumb({ node, siteId }: EquipmentLocationB
         </div>
       );
     }
+  }
+
+  if (variant === 'compact') {
+    if (parts.length === 0) {
+      return (
+        <div className="flex items-center gap-1 text-gray-400 text-xs">
+          <MapPin className="h-3 w-3" />
+          <span>Site</span>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex items-center gap-1 text-xs">
+        {parts.map((part, index) => (
+          <div key={index} className="flex items-center gap-1">
+            {index > 0 && <ChevronRight className="h-3 w-3 text-gray-300" />}
+            {part}
+          </div>
+        ))}
+      </div>
+    );
   }
 
   if (parts.length === 0) {

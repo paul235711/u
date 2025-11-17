@@ -43,7 +43,6 @@ export { GasLegend } from './components/v2/GasLegend';
 export { SiteHierarchyManagerOptimized as SiteHierarchyManager } from './components/v2/SiteHierarchyManagerOptimized';
 
 // Equipment Management
-export { EquipmentManager } from './components/v2/EquipmentManager';
 export { EquipmentBankEnhanced } from './components/v2/EquipmentBankEnhanced';
 export { EquipmentCreateDialog } from './components/v2/EquipmentCreateDialog';
 export { EquipmentEditDialog } from './components/v2/EquipmentEditDialog';

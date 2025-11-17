@@ -2,6 +2,7 @@
 
 import { cn } from '@/lib/utils';
 import type { ValveInfo } from './types';
+import ValveIcon from '../../../icons/ValveIcon';
 
 interface ValveBadgeProps {
   locationId: string;
@@ -22,8 +23,8 @@ export function ValveBadge({ locationId, count, onClick, size = 'md', isLoading 
   };
 
   const iconSizes = {
-    sm: 'text-[10px]',
-    md: 'text-xs',
+    sm: 'w-2.5 h-2.5',
+    md: 'w-3.5 h-3.5',
   };
 
   if (isLoading) {
@@ -52,7 +53,7 @@ export function ValveBadge({ locationId, count, onClick, size = 'md', isLoading 
       title={`${count} valve${count !== 1 ? 's' : ''} - Click to view`}
       aria-label={`${count} valve${count === 1 ? '' : 's'}`}
     >
-      <span className={iconSizes[size]}>▶◀</span>
+      <ValveIcon className={iconSizes[size]} />
       <span>{count}</span>
     </button>
   );

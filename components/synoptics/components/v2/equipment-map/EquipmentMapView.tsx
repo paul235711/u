@@ -16,6 +16,17 @@ const STATUS_PALETTE: Record<string, { color: string; badge: string; muted: stri
 
 const DEFAULT_ZOOM = 13;
 
+const GAS_COLORS: Record<string, string> = {
+  oxygen: '#ef4444',
+  medical_air: '#9333ea',
+  vacuum: '#22c55e',
+  nitrogen: '#3b82f6',
+  nitrous_oxide: '#f97316',
+  carbon_dioxide: '#6b7280',
+  co2: '#6b7280',
+  compressed_air: '#8b5cf6',
+};
+
 interface EquipmentMapViewProps {
   isLoading: boolean;
   isError: boolean;
@@ -161,7 +172,12 @@ export function EquipmentMapView({
         source: 'equipment',
         filter: ['!', ['has', 'point_count']],
         paint: {
-          'circle-radius': 8,
+          'circle-radius': [
+            'case',
+            ['==', ['get', 'nodeType'], 'valve'],
+            0.1,
+            8,
+          ],
           'circle-color': [
             'match',
             ['get', 'status'],
@@ -176,6 +192,53 @@ export function EquipmentMapView({
           'circle-stroke-width': 2,
         },
       });
+
+      map.addLayer({
+        id: 'equipment-valves-circle',
+        type: 'circle',
+        source: 'equipment',
+        filter: ['all', ['!', ['has', 'point_count']], ['==', ['get', 'nodeType'], 'valve']],
+        paint: {
+          'circle-radius': 10,
+          'circle-color': [
+            'match',
+            ['get', 'gasType'],
+            'oxygen', GAS_COLORS.oxygen,
+            'medical_air', GAS_COLORS.medical_air,
+            'vacuum', GAS_COLORS.vacuum,
+            'nitrogen', GAS_COLORS.nitrogen,
+            'nitrous_oxide', GAS_COLORS.nitrous_oxide,
+            'carbon_dioxide', GAS_COLORS.carbon_dioxide,
+            'co2', GAS_COLORS.co2,
+            'compressed_air', GAS_COLORS.compressed_air,
+            GAS_COLORS.carbon_dioxide,
+          ],
+          'circle-opacity': 0.9,
+          'circle-stroke-color': '#ffffff',
+          'circle-stroke-width': 2,
+        },
+      });
+
+      const valveImage = new Image(40, 40);
+      valveImage.onload = () => {
+        if (!map.hasImage('valve-icon')) {
+          map.addImage('valve-icon', valveImage, { pixelRatio: 2 });
+        }
+
+        map.addLayer({
+          id: 'equipment-valves-icon',
+          type: 'symbol',
+          source: 'equipment',
+          filter: ['all', ['!', ['has', 'point_count']], ['==', ['get', 'nodeType'], 'valve']],
+          layout: {
+            'icon-image': 'valve-icon',
+            'icon-size': 0.4,
+            'icon-allow-overlap': true,
+          },
+        });
+      };
+      valveImage.src = '/valve.svg';
+
       console.log('[EquipmentMapView] All layers added successfully');
 
       // Cluster click handler
@@ -201,8 +264,7 @@ export function EquipmentMapView({
         });
       });
 
-      // Equipment click handler with photo loading
-      map.on('click', 'equipment-unclustered', async (event) => {
+      const handleEquipmentClick = async (event: any) => {
         const selectedFeature = event.features?.[0] as MapboxGeoJSONFeature | undefined;
         if (!selectedFeature || selectedFeature.geometry.type !== 'Point') {
           return;
@@ -210,7 +272,7 @@ export function EquipmentMapView({
         const coords = toLngLatTuple(selectedFeature.geometry.coordinates);
         if (!coords) return;
         const props = selectedFeature.properties as Record<string, string>;
-        
+
         // Initial popup with loading state
         let html = `
           <div class="min-w-[200px] space-y-2">
@@ -226,10 +288,10 @@ export function EquipmentMapView({
         `;
 
         if (!popupRef.current) {
-          popupRef.current = new mapboxgl.Popup({ 
-            closeButton: true, 
+          popupRef.current = new mapboxgl.Popup({
+            closeButton: true,
             closeOnClick: true,
-            maxWidth: '300px'
+            maxWidth: '300px',
           });
         }
         popupRef.current.setLngLat(coords).setHTML(html).addTo(map);
@@ -240,19 +302,19 @@ export function EquipmentMapView({
             console.log('[EquipmentMapView] Loading media for:', props.nodeType, props.elementId);
             const mediaResponse = await fetch(`/api/synoptics/${props.nodeType}s/${props.elementId}/media`);
             console.log('[EquipmentMapView] Media response status:', mediaResponse.status);
-            
+
             if (mediaResponse.ok) {
               const media = await mediaResponse.json();
               console.log('[EquipmentMapView] Media data:', media);
               const firstImage = media.find((m: any) => m.fileType?.startsWith('image/'));
-              
+
               if (firstImage) {
                 console.log('[EquipmentMapView] Found image:', firstImage.fileUrl);
                 html = `
                   <div class="min-w-[200px] space-y-2">
                     <div class="text-sm font-semibold text-gray-900">${props.name ?? 'Equipment'}</div>
-                    <img 
-                      src="${firstImage.fileUrl}" 
+                    <img
+                      src="${firstImage.fileUrl}"
                       alt="${props.name}"
                       class="w-full h-32 object-cover rounded border border-gray-200"
                       onerror="this.style.display='none'"
@@ -330,14 +392,25 @@ export function EquipmentMapView({
           `;
           popupRef.current.setHTML(html);
         }
-      });
+      };
 
-      map.on('mouseenter', 'equipment-unclustered', () => {
+      map.on('click', 'equipment-unclustered', handleEquipmentClick);
+      map.on('click', 'equipment-valves-circle', handleEquipmentClick);
+      map.on('click', 'equipment-valves-icon', handleEquipmentClick);
+
+      const handleMouseEnter = () => {
         map.getCanvas().style.cursor = 'pointer';
-      });
-      map.on('mouseleave', 'equipment-unclustered', () => {
+      };
+      const handleMouseLeave = () => {
         map.getCanvas().style.cursor = '';
-      });
+      };
+
+      map.on('mouseenter', 'equipment-unclustered', handleMouseEnter);
+      map.on('mouseleave', 'equipment-unclustered', handleMouseLeave);
+      map.on('mouseenter', 'equipment-valves-circle', handleMouseEnter);
+      map.on('mouseleave', 'equipment-valves-circle', handleMouseLeave);
+      map.on('mouseenter', 'equipment-valves-icon', handleMouseEnter);
+      map.on('mouseleave', 'equipment-valves-icon', handleMouseLeave);
     });
     }, 100);
 

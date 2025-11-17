@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUser } from '@/lib/db/queries';
-import { createLayout } from '@/lib/db/synoptics-queries';
+import { createLayout, getLayoutsBySiteId } from '@/lib/db/synoptics-queries';
 import { z } from 'zod';
 
 const layoutSchema = z.object({
@@ -9,6 +9,35 @@ const layoutSchema = z.object({
   name: z.string().min(1),
   layoutType: z.enum(['site', 'floor', 'zone']),
 });
+
+export async function GET(request: NextRequest) {
+  try {
+    const user = await getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const siteId = searchParams.get('siteId');
+
+    if (!siteId) {
+      return NextResponse.json(
+        { error: 'siteId query parameter is required' },
+        { status: 400 }
+      );
+    }
+
+    const layouts = await getLayoutsBySiteId(siteId);
+    return NextResponse.json(layouts);
+  } catch (error) {
+    console.error('Error fetching layouts:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {

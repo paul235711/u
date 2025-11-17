@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -10,6 +10,10 @@ import {
   EquipmentListView,
 } from './equipment-map';
 import { EquipmentEditDialog } from './EquipmentEditDialog';
+import { EquipmentCreateDialog } from './EquipmentCreateDialog';
+import { EquipmentDeleteDialog } from './EquipmentDeleteDialog';
+import { Button } from '@/components/ui/button';
+import { Plus } from 'lucide-react';
 
 const DEFAULT_CENTER: [number, number] = [2.3522, 48.8566];
 
@@ -52,12 +56,14 @@ interface RawNode {
     longitude?: number | string | null;
     buildingId?: string | null;
     floorId?: string | null;
+    zoneId?: string | null;
   } | null;
   buildingId?: string | null;
   floorId?: string | null;
+  zoneId?: string | null;
 }
 
-interface EquipmentFeature {
+export interface EquipmentFeature {
   id: string;
   name: string;
   nodeType: 'valve' | 'source' | 'fitting';
@@ -69,6 +75,7 @@ interface EquipmentFeature {
   longitude?: number | string | null;
   buildingId: string | null;
   floorId: string | null;
+  zoneId: string | null;
 }
 
 // Utility functions
@@ -81,6 +88,24 @@ function toNumber(value: unknown): number | undefined {
 function normaliseStatus(status?: string): string {
   if (!status) return 'unknown';
   return status.toLowerCase().replace(/\s+/g, '_');
+}
+
+function normaliseGasType(gasType?: string): string {
+  if (!gasType) return 'unknown';
+  const key = gasType.toLowerCase().replace(/\s+/g, '_');
+  switch (key) {
+    case 'oxygen':
+    case 'medical_air':
+    case 'vacuum':
+    case 'nitrous_oxide':
+    case 'nitrogen':
+    case 'carbon_dioxide':
+    case 'co2':
+    case 'compressed_air':
+      return key;
+    default:
+      return gasType;
+  }
 }
 
 function humanise(text: string): string {
@@ -114,6 +139,8 @@ export function SiteEquipmentMap({
   // Edit dialog state
   const [selectedEquipment, setSelectedEquipment] = useState<EquipmentFeature | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [deletingNodeIds, setDeletingNodeIds] = useState<string[]>([]);
 
   // Fetch equipment data
   const { data: nodesData, isLoading, isError } = useQuery<RawNode[]>({
@@ -156,18 +183,66 @@ export function SiteEquipmentMap({
           nodeType: nodeType as 'valve' | 'source' | 'fitting',
           elementId: node.elementId,
           status: normaliseStatus(node.state || node.status),
-          gasType: node.gasType || node.metadata?.gasType || 'Unknown',
+          gasType: normaliseGasType(node.gasType || node.metadata?.gasType || undefined),
           coordinates,
           latitude: node.latitude,
           longitude: node.longitude,
           buildingId: node.buildingId ?? node.location?.buildingId ?? null,
           floorId: node.floorId ?? node.location?.floorId ?? null,
+          zoneId: node.zoneId ?? node.location?.zoneId ?? null,
         };
 
         return item;
       })
       .filter((item): item is EquipmentFeature => item !== null);
   }, [nodes]);
+
+  const { data: hierarchyData } = useQuery({
+    queryKey: ['site-hierarchy', siteId],
+    queryFn: async () => {
+      const response = await fetch(`/api/synoptics/sites/${siteId}/hierarchy`);
+      if (!response.ok) return null;
+      return response.json();
+    },
+    enabled: !!siteId,
+    staleTime: 30000,
+  });
+
+  const { data: nodePositions = {} } = useQuery({
+    queryKey: ['node-positions', nodes.map((n) => n.id)],
+    queryFn: async () => {
+      const positions: Record<string, any[]> = {};
+
+      await Promise.all(
+        nodes.map(async (node) => {
+          try {
+            const response = await fetch(`/api/synoptics/node-positions?nodeId=${node.id}`);
+            if (response.ok) {
+              positions[node.id] = await response.json();
+            } else {
+              positions[node.id] = [];
+            }
+          } catch (error) {
+            console.error(`Failed to fetch positions for ${node.id}:`, error);
+            positions[node.id] = [];
+          }
+        })
+      );
+
+      return positions;
+    },
+    enabled: nodes.length > 0,
+  });
+
+  const { data: layouts = [] } = useQuery({
+    queryKey: ['layouts', siteId],
+    queryFn: async () => {
+      const response = await fetch(`/api/synoptics/layouts?siteId=${siteId}`);
+      if (!response.ok) return [];
+      return response.json();
+    },
+    enabled: !!siteId,
+  });
 
 
   // Build building lookup map
@@ -266,6 +341,10 @@ export function SiteEquipmentMap({
     setShowEditDialog(true);
   };
 
+  const handleDeleteFromList = (id: string) => {
+    setDeletingNodeIds([id]);
+  };
+
   const handleEditSuccess = () => {
     queryClient.invalidateQueries({ queryKey: ['site-equipment', siteId] });
     setShowEditDialog(false);
@@ -342,13 +421,34 @@ export function SiteEquipmentMap({
         />
       )}
 
+      {viewMode === 'list' && (
+        <div className="flex items-center justify-between text-sm text-gray-600">
+          <div>
+            {filteredEquipment.length} équipements
+            {filteredEquipment.length !== equipment.length && (
+              <span className="text-gray-400"> (sur {equipment.length})</span>
+            )}
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => setIsCreateOpen(true)}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add Equipment
+          </Button>
+        </div>
+      )}
+
       {/* Content Area - List View */}
       {viewMode === 'list' && (
         <EquipmentListView
           isLoading={isLoading}
           equipment={filteredEquipment}
           hasEquipment={hasEquipment}
-          buildingMap={buildingMap}
+          layouts={layouts}
+          nodePositions={nodePositions}
+          siteId={siteId}
+          onDelete={handleDeleteFromList}
           onEquipmentClick={handleEquipmentClick}
         />
       )}
@@ -364,6 +464,31 @@ export function SiteEquipmentMap({
           siteLongitude={siteLongitude}
         />
       )}
+
+      <EquipmentCreateDialog
+        open={isCreateOpen}
+        onOpenChange={setIsCreateOpen}
+        siteId={siteId}
+        hierarchyData={hierarchyData}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['site-equipment', siteId] });
+          queryClient.invalidateQueries({ queryKey: ['site-hierarchy', siteId] });
+          setIsCreateOpen(false);
+        }}
+      />
+
+      <EquipmentDeleteDialog
+        open={deletingNodeIds.length > 0}
+        onOpenChange={(open) => {
+          if (!open) setDeletingNodeIds([]);
+        }}
+        nodeIds={deletingNodeIds}
+        nodes={nodes}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['site-equipment', siteId] });
+          setDeletingNodeIds([]);
+        }}
+      />
     </div>
   );
 }

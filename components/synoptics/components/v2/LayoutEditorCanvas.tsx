@@ -283,10 +283,10 @@ export function LayoutEditorCanvas({
               <Button
                 className="shadow-lg"
                 onClick={() => setShowEquipmentBank(true)}
-                title="Ouvrir la banque d'équipements"
+                title="Open the equipment bank"
               >
                 <Package className="h-4 w-4 mr-2" />
-                Banque d'Équipements
+                Equipements
               </Button>
             )}
           </div>
