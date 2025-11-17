@@ -9,7 +9,7 @@ interface EquipmentLocationBreadcrumbProps {
   variant?: 'default' | 'compact';
 }
 
-export function EquipmentLocationBreadcrumb({ node, siteId, variant = 'default' }: EquipmentLocationBreadcrumbProps) {
+export function EquipmentLocationBreadcrumb({ node, siteId, variant = 'default', onlyLast = false }: EquipmentLocationBreadcrumbProps & { onlyLast?: boolean }) {
   // Fetch hierarchy to get location names
   const { data: hierarchyData, isLoading } = useQuery({
     queryKey: ['site-hierarchy', siteId],
@@ -31,6 +31,7 @@ export function EquipmentLocationBreadcrumb({ node, siteId, variant = 'default' 
   }
 
   const parts = [];
+  const labelClass = variant === 'compact' ? 'truncate max-w-[100px] whitespace-nowrap' : '';
 
   // Building
   if (node.buildingId) {
@@ -39,7 +40,7 @@ export function EquipmentLocationBreadcrumb({ node, siteId, variant = 'default' 
       parts.push(
         <div key="building" className="flex items-center gap-1">
           <Building2 className="h-3 w-3 text-gray-400" />
-          <span>{building.name}</span>
+          <span className={labelClass}>{building.name}</span>
         </div>
       );
     }
@@ -55,7 +56,7 @@ export function EquipmentLocationBreadcrumb({ node, siteId, variant = 'default' 
       parts.push(
         <div key="floor" className="flex items-center gap-1">
           <Layers className="h-3 w-3 text-gray-400" />
-          <span>{floor.name}</span>
+          <span className={labelClass}>{floor.name}</span>
         </div>
       );
     }
@@ -85,7 +86,7 @@ export function EquipmentLocationBreadcrumb({ node, siteId, variant = 'default' 
         parts.push(
           <div key="zone-building" className="flex items-center gap-1">
             <Building2 className="h-3 w-3 text-gray-400" />
-            <span>{zoneBuilding.name}</span>
+            <span className={labelClass}>{zoneBuilding.name}</span>
           </div>
         );
       }
@@ -94,7 +95,7 @@ export function EquipmentLocationBreadcrumb({ node, siteId, variant = 'default' 
         parts.push(
           <div key="zone-floor" className="flex items-center gap-1">
             <Layers className="h-3 w-3 text-gray-400" />
-            <span>{zoneFloor.name}</span>
+            <span className={labelClass}>{zoneFloor.name}</span>
           </div>
         );
       }
@@ -102,14 +103,16 @@ export function EquipmentLocationBreadcrumb({ node, siteId, variant = 'default' 
       parts.push(
         <div key="zone" className="flex items-center gap-1">
           <Box className="h-3 w-3 text-gray-400" />
-          <span>{zone.name}</span>
+          <span className={labelClass}>{zone.name}</span>
         </div>
       );
     }
   }
 
   if (variant === 'compact') {
-    if (parts.length === 0) {
+    const displayParts = onlyLast && parts.length > 0 ? [parts[parts.length - 1]] : parts;
+
+    if (displayParts.length === 0) {
       return (
         <div className="flex items-center gap-1 text-gray-400 text-xs">
           <MapPin className="h-3 w-3" />
@@ -120,7 +123,7 @@ export function EquipmentLocationBreadcrumb({ node, siteId, variant = 'default' 
 
     return (
       <div className="flex items-center gap-1 text-xs">
-        {parts.map((part, index) => (
+        {displayParts.map((part, index) => (
           <div key={index} className="flex items-center gap-1">
             {index > 0 && <ChevronRight className="h-3 w-3 text-gray-300" />}
             {part}
@@ -130,7 +133,9 @@ export function EquipmentLocationBreadcrumb({ node, siteId, variant = 'default' 
     );
   }
 
-  if (parts.length === 0) {
+  const displayParts = onlyLast && parts.length > 0 ? [parts[parts.length - 1]] : parts;
+
+  if (displayParts.length === 0) {
     return (
       <div className="flex items-center gap-1 text-gray-400">
         <MapPin className="h-3 w-3" />
@@ -141,7 +146,7 @@ export function EquipmentLocationBreadcrumb({ node, siteId, variant = 'default' 
 
   return (
     <div className="flex items-center gap-1 text-sm">
-      {parts.map((part, index) => (
+      {displayParts.map((part, index) => (
         <div key={index} className="flex items-center gap-1">
           {index > 0 && <ChevronRight className="h-3 w-3 text-gray-300" />}
           {part}

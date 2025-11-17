@@ -3,6 +3,7 @@
 import { memo } from 'react';
 import { Handle, Position, NodeProps } from '@xyflow/react';
 import { Cylinder } from 'lucide-react';
+import { NodeLocationBadge } from '../NodeLocationBadge';
 
 const GAS_COLORS: Record<string, { bg: string; border: string }> = {
   oxygen: { bg: 'bg-red-500', border: 'border-red-700' },
@@ -24,6 +25,7 @@ export const SourceNode = memo(({ data }: NodeProps) => {
   const isSelected = data.isSelected === true;
   const isDownstream = data.isDownstream === true;
   const rotation = (data.rotation as number) || 0; // 0, 90, 180, 270
+  const showLocationBadge = (data as any).showLocationBadges && (data as any).siteId;
   
   // Determine highlight style
   let highlightClass = 'shadow-lg';
@@ -54,19 +56,27 @@ export const SourceNode = memo(({ data }: NodeProps) => {
   const handlePosition = getHandlePosition();
   
   return (
-    <div 
-      className={`px-4 py-3 rounded-lg ${colors.bg} border-2 ${colors.border} min-w-[120px] ${highlightClass} transition-all duration-150`}
-      style={{ transform: `rotate(${rotation}deg)` }}
-    >
-      <Handle type="source" position={handlePosition} className="w-3 h-3" style={{ opacity: showHandles ? 1 : 0 }} />
-      
-      <div className="flex items-center gap-2">
-        <Cylinder className="w-5 h-5 text-white" />
-        <div className="text-white">
-          <div className="text-xs font-semibold">{data.label as string}</div>
-          <div className="text-[10px] opacity-90 capitalize">{(data.gasType as string)?.replace(/_/g, ' ')}</div>
+    <div className="relative inline-block">
+      <div 
+        className={`px-4 py-3 rounded-lg ${colors.bg} border-2 ${colors.border} min-w-[120px] ${highlightClass} transition-all duration-150`}
+        style={{ transform: `rotate(${rotation}deg)` }}
+      >
+        <Handle type="source" position={handlePosition} className="w-3 h-3" style={{ opacity: showHandles ? 1 : 0 }} />
+        
+        <div className="flex items-center gap-2">
+          <Cylinder className="w-5 h-5 text-white" />
+          <div className="text-white">
+            <div className="text-xs font-semibold">{data.label as string}</div>
+            <div className="text-[10px] opacity-90 capitalize">{(data.gasType as string)?.replace(/_/g, ' ')}</div>
+          </div>
         </div>
       </div>
+
+      {showLocationBadge && (
+        <div className="absolute -top-4 right-0 z-10">
+          <NodeLocationBadge node={data} siteId={(data as any).siteId as string} />
+        </div>
+      )}
     </div>
   );
 });

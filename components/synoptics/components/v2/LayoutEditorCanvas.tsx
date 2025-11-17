@@ -36,6 +36,7 @@ export function LayoutEditorCanvas({
   const annotationMode = useUIStore((state) => state.annotationMode);
   const toggleAnnotationMode = useUIStore((state) => state.toggleAnnotationMode);
   const selectElement = useUIStore((state) => state.selectElement);
+  const showLocationBadges = useUIStore((state) => state.showLocationBadges);
   const [showEquipmentBank, setShowEquipmentBank] = useState(false);
   const [showAnnotations, setShowAnnotations] = useState(true);
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -304,6 +305,7 @@ export function LayoutEditorCanvas({
           editable={!isLocked && !annotationMode}
           annotations={annotations}
           showAnnotations={showAnnotations}
+          showLocationBadges={showLocationBadges}
         />
       </div>
 

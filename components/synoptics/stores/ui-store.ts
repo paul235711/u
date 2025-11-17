@@ -17,9 +17,9 @@ interface QuickAddContext {
 interface UIState {
   // Editor state
   isLocked: boolean;
-  isFullscreen: boolean;
   edgeToolMode: EdgeToolMode;
   annotationMode: boolean;
+  showLocationBadges: boolean;
   
   // Panel visibility
   panels: {
@@ -28,7 +28,6 @@ interface UIState {
     legend: boolean;
     locationFilter: boolean;
     valveImpact: boolean;
-    shortcuts: boolean;
     properties: boolean;
     import: boolean;
   };
@@ -46,11 +45,12 @@ interface UIState {
   // Actions
   toggleLock: () => void;
   setLocked: (locked: boolean) => void;
-  toggleFullscreen: () => void;
   setEdgeToolMode: (mode: EdgeToolMode) => void;
   toggleEdgeToolMode: () => void;
   toggleAnnotationMode: () => void;
   setAnnotationMode: (enabled: boolean) => void;
+   toggleLocationBadges: () => void;
+   setLocationBadges: (visible: boolean) => void;
   togglePanel: (panel: keyof UIState['panels']) => void;
   setPanel: (panel: keyof UIState['panels'], visible: boolean) => void;
   selectElement: (id: string | null) => void;
@@ -67,7 +67,6 @@ const initialPanels = {
   legend: true,
   locationFilter: false,
   valveImpact: false,
-  shortcuts: false,
   properties: false,
   import: false,
 };
@@ -82,9 +81,9 @@ export const useUIStore = create<UIState>()(
     (set) => ({
       // Initial state
       isLocked: true,
-      isFullscreen: false,
       edgeToolMode: 'select',
       annotationMode: false,
+      showLocationBadges: false,
       panels: initialPanels,
       selectedElementId: null,
       dialogs: initialDialogs,
@@ -114,13 +113,6 @@ export const useUIStore = create<UIState>()(
           'setLocked'
         ),
 
-      toggleFullscreen: () =>
-        set(
-          (state) => ({ isFullscreen: !state.isFullscreen }),
-          false,
-          'toggleFullscreen'
-        ),
-
       setEdgeToolMode: (mode) =>
         set({ edgeToolMode: mode }, false, 'setEdgeToolMode'),
 
@@ -145,6 +137,20 @@ export const useUIStore = create<UIState>()(
           { annotationMode: enabled },
           false,
           'setAnnotationMode'
+        ),
+
+      toggleLocationBadges: () =>
+        set(
+          (state) => ({ showLocationBadges: !state.showLocationBadges }),
+          false,
+          'toggleLocationBadges'
+        ),
+
+      setLocationBadges: (visible) =>
+        set(
+          { showLocationBadges: visible },
+          false,
+          'setLocationBadges'
         ),
 
       togglePanel: (panel) =>
@@ -214,8 +220,9 @@ export const useUIStore = create<UIState>()(
         set(
           {
             isLocked: true,
-            isFullscreen: false,
             edgeToolMode: 'select',
+            annotationMode: false,
+            showLocationBadges: false,
             panels: initialPanels,
             selectedElementId: null,
             dialogs: initialDialogs,

@@ -3,6 +3,7 @@
 import { memo } from 'react';
 import { Handle, Position, NodeProps } from '@xyflow/react';
 import { Circle } from 'lucide-react';
+import { NodeLocationBadge } from '../NodeLocationBadge';
 
 const GAS_COLORS: Record<string, { bg: string; border: string; text: string }> = {
   oxygen: { bg: 'bg-red-100', border: 'border-red-500', text: 'text-red-700' },
@@ -24,6 +25,7 @@ export const FittingNode = memo(({ data }: NodeProps) => {
   const isSelected = data.isSelected === true;
   const isDownstream = data.isDownstream === true;
   const rotation = (data.rotation as number) || 0; // 0, 90, 180, 270
+  const showLocationBadge = (data as any).showLocationBadges && (data as any).siteId;
   
   // Determine highlight style
   let highlightClass = 'shadow-md';
@@ -34,24 +36,32 @@ export const FittingNode = memo(({ data }: NodeProps) => {
   }
   
   return (
-    <div 
-      className={`px-3 py-2 rounded-full border-2 min-w-[80px] ${colors.bg} ${colors.border} ${highlightClass} transition-all duration-150`}
-      style={{ transform: `rotate(${rotation}deg)` }}
-    >
-      <Handle type="target" position={Position.Left} className="w-3 h-3" style={{ opacity: showHandles ? 1 : 0 }} />
-      <Handle type="source" position={Position.Right} className="w-3 h-3" style={{ opacity: showHandles ? 1 : 0 }} />
-      <Handle type="source" position={Position.Top} className="w-3 h-3" style={{ opacity: showHandles ? 1 : 0 }} />
-      <Handle type="source" position={Position.Bottom} className="w-3 h-3" style={{ opacity: showHandles ? 1 : 0 }} />
-      
-      <div className="flex items-center gap-2">
-        <Circle className={`w-4 h-4 ${colors.text}`} />
-        <div>
-          <div className={`text-xs font-semibold ${colors.text}`}>{(data.label as string) || 'Fitting'}</div>
-          <div className="text-[10px] text-gray-600 capitalize">
-            {(data.gasType as string)?.replace(/_/g, ' ')}
+    <div className="relative inline-block">
+      <div 
+        className={`px-3 py-2 rounded-full border-2 min-w-[80px] ${colors.bg} ${colors.border} ${highlightClass} transition-all duration-150`}
+        style={{ transform: `rotate(${rotation}deg)` }}
+      >
+        <Handle type="target" position={Position.Left} className="w-3 h-3" style={{ opacity: showHandles ? 1 : 0 }} />
+        <Handle type="source" position={Position.Right} className="w-3 h-3" style={{ opacity: showHandles ? 1 : 0 }} />
+        <Handle type="source" position={Position.Top} className="w-3 h-3" style={{ opacity: showHandles ? 1 : 0 }} />
+        <Handle type="source" position={Position.Bottom} className="w-3 h-3" style={{ opacity: showHandles ? 1 : 0 }} />
+        
+        <div className="flex items-center gap-2">
+          <Circle className={`w-4 h-4 ${colors.text}`} />
+          <div>
+            <div className={`text-xs font-semibold ${colors.text}`}>{(data.label as string) || 'Fitting'}</div>
+            <div className="text-[10px] text-gray-600 capitalize">
+              {(data.gasType as string)?.replace(/_/g, ' ')}
+            </div>
           </div>
         </div>
       </div>
+
+      {showLocationBadge && (
+        <div className="absolute -top-3 -right-3 z-10">
+          <NodeLocationBadge node={data} siteId={(data as any).siteId as string} />
+        </div>
+      )}
     </div>
   );
 });

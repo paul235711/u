@@ -3,6 +3,7 @@
 import { memo } from 'react';
 import { Handle, Position, NodeProps } from '@xyflow/react';
 import ValveIcon from '../../../icons/ValveIcon';
+import { NodeLocationBadge } from '../NodeLocationBadge';
 
 const GAS_COLORS: Record<string, { bg: string; border: string; text: string }> = {
   oxygen: { bg: 'bg-red-100', border: 'border-red-500', text: 'text-red-700' },
@@ -24,6 +25,7 @@ export const ValveNode = memo(({ data }: NodeProps) => {
   const isSelected = data.isSelected === true;
   const isDownstream = data.isDownstream === true;
   const rotation = (data.rotation as number) || 0; // 0, 90, 180, 270
+  const showLocationBadge = (data as any).showLocationBadges && (data as any).siteId;
   
   // Determine highlight style
   let highlightClass = 'shadow-md';
@@ -54,22 +56,30 @@ export const ValveNode = memo(({ data }: NodeProps) => {
   const handlePositions = getHandlePositions();
   
   return (
-    <div 
-      className={`px-2 py-1 rounded border min-w-[60px] ${colors.bg} ${colors.border} ${highlightClass} transition-all duration-300`}
-      style={{ 
-        transform: `rotate(${rotation}deg)`,
-        transformOrigin: 'center center',
-      }}
-    >
-      <Handle type="target" position={handlePositions.target} className="w-2 h-2" style={{ opacity: showHandles ? 1 : 0 }} />
-      <Handle type="source" position={handlePositions.source} className="w-2 h-2" style={{ opacity: showHandles ? 1 : 0 }} />
-      
-      <div className="flex items-center justify-center gap-1">
-        <ValveIcon className={`w-3 h-3 ${colors.text}`} />
-        <span className={`text-xs font-bold ${colors.text}`}>
-          {data.label as string}
-        </span>
+    <div className="relative inline-block">
+      <div 
+        className={`px-2 py-1 rounded border min-w-[60px] ${colors.bg} ${colors.border} ${highlightClass} transition-all duration-300`}
+        style={{ 
+          transform: `rotate(${rotation}deg)`,
+          transformOrigin: 'center center',
+        }}
+      >
+        <Handle type="target" position={handlePositions.target} className="w-2 h-2" style={{ opacity: showHandles ? 1 : 0 }} />
+        <Handle type="source" position={handlePositions.source} className="w-2 h-2" style={{ opacity: showHandles ? 1 : 0 }} />
+        
+        <div className="flex items-center justify-center gap-1">
+          <ValveIcon className={`w-3 h-3 ${colors.text}`} />
+          <span className={`text-xs font-bold ${colors.text}`}>
+            {data.label as string}
+          </span>
+        </div>
       </div>
+
+      {showLocationBadge && (
+        <div className="absolute -top-4 right-0 z-10">
+          <NodeLocationBadge node={data} siteId={(data as any).siteId as string} />
+        </div>
+      )}
     </div>
   );
 });

@@ -6,7 +6,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { Lock, Unlock, Eye, EyeOff, Keyboard, Maximize2, Minimize2, Scissors } from 'lucide-react';
+import { Lock, Unlock, Eye, EyeOff, Scissors } from 'lucide-react';
 import { useUIStore } from '../../stores/ui-store';
 
 interface LayoutEditorHeaderProps {
@@ -15,15 +15,15 @@ interface LayoutEditorHeaderProps {
 
 export function LayoutEditorHeader({ layoutName }: LayoutEditorHeaderProps = {}) {
   const isLocked = useUIStore((state) => state.isLocked);
-  const isFullscreen = useUIStore((state) => state.isFullscreen);
   const edgeToolMode = useUIStore((state) => state.edgeToolMode);
   const toggleLock = useUIStore((state) => state.toggleLock);
-  const toggleFullscreen = useUIStore((state) => state.toggleFullscreen);
   const toggleEdgeToolMode = useUIStore((state) => state.toggleEdgeToolMode);
   
   const showStats = useUIStore((state) => state.panels.stats);
   const showFilters = useUIStore((state) => state.panels.filters);
   const togglePanel = useUIStore((state) => state.togglePanel);
+  const showLocationBadges = useUIStore((state) => state.showLocationBadges);
+  const toggleLocationBadges = useUIStore((state) => state.toggleLocationBadges);
 
   return (
     <header className="border-b border-gray-200 bg-white px-4 py-3">
@@ -95,6 +95,21 @@ export function LayoutEditorHeader({ layoutName }: LayoutEditorHeaderProps = {})
             Filters
           </Button>
 
+          {/* Location badges toggle */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={toggleLocationBadges}
+            className={showLocationBadges ? 'bg-blue-50' : ''}
+          >
+            {showLocationBadges ? (
+              <EyeOff className="mr-2 h-4 w-4" />
+            ) : (
+              <Eye className="mr-2 h-4 w-4" />
+            )}
+            Location
+          </Button>
+
           {/* Stats Toggle */}
           <Button
             variant="outline"
@@ -108,28 +123,6 @@ export function LayoutEditorHeader({ layoutName }: LayoutEditorHeaderProps = {})
               <Eye className="mr-2 h-4 w-4" />
             )}
             Stats
-          </Button>
-
-          {/* Shortcuts */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => togglePanel('shortcuts')}
-          >
-            <Keyboard className="h-4 w-4" />
-          </Button>
-
-          {/* Fullscreen */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={toggleFullscreen}
-          >
-            {isFullscreen ? (
-              <Minimize2 className="h-4 w-4" />
-            ) : (
-              <Maximize2 className="h-4 w-4" />
-            )}
           </Button>
         </div>
       </div>

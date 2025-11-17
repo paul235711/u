@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Building2, Layers, MapPin, X, Search, Trash2 } from 'lucide-react';
 import { Annotation } from './AnnotationLayer';
 
@@ -53,36 +54,47 @@ export function AnnotationBank({ siteId, layoutId, annotations, onRefresh, onClo
           const data = await response.json();
           
           // Buildings
-          setBuildings(data.buildings || []);
+          const buildingsData = data.buildings || [];
+          setBuildings(buildingsData);
           
-          // Floors - Créer des étages génériques si nécessaire
-          const floorsData = data.floors || [];
-          const genericFloors = [];
+          // Floors - only use real floors coming from the site
+          const floorsFromRoot = (data.floors || []) as Floor[];
+          const floorsFromBuildings: Floor[] = buildingsData.flatMap((b: any) =>
+            (b.floors || []).map((f: any) => ({
+              id: f.id,
+              name: f.name,
+              code: f.code ?? String(f.floorNumber ?? ''),
+              buildingId: b.id,
+            }))
+          );
+
+          const mergedFloors: Floor[] = floorsFromRoot.length > 0 ? floorsFromRoot : floorsFromBuildings;
+          setFloors(mergedFloors);
           
-          // Ajouter les étages génériques 1-10
-          for (let i = 1; i <= 10; i++) {
-            if (!floorsData.find((f: Floor) => f.name === `Étage ${i}`)) {
-              genericFloors.push({
-                id: `generic-floor-${i}`,
-                name: `Étage ${i}`,
-                code: `E${i}`,
-                buildingId: '',
-              });
-            }
-          }
-          
-          setFloors([...floorsData, ...genericFloors]);
-          
-          // Zones - Récupérer depuis l'API
+          // Zones - load from API, fallback to hierarchy data
           const zonesResponse = await fetch(`/api/synoptics/sites/${siteId}/zones`);
           if (zonesResponse.ok) {
             const zonesData = await zonesResponse.json();
             console.log('✅ Zones loaded:', zonesData);
             setZones(zonesData || []);
           } else {
-            console.log('⚠️ Zones API failed, using fallback');
-            // Fallback si pas d'endpoint zones
-            setZones(data.zones || []);
+            console.log('⚠️ Zones API failed, using hierarchy fallback');
+            // Fallback if zones endpoint is not available
+            if (Array.isArray(data.zones) && data.zones.length > 0) {
+              setZones(data.zones || []);
+            } else {
+              const zonesFromHierarchy: Zone[] = buildingsData.flatMap((b: any) =>
+                (b.floors || []).flatMap((f: any) =>
+                  (f.zones || []).map((z: any) => ({
+                    id: z.id,
+                    name: z.name,
+                    code: z.code ?? '',
+                    floorId: f.id,
+                  }))
+                )
+              );
+              setZones(zonesFromHierarchy);
+            }
           }
         }
       } catch (error) {
@@ -119,7 +131,7 @@ export function AnnotationBank({ siteId, layoutId, annotations, onRefresh, onClo
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Supprimer cette annotation ?')) return;
+    if (!confirm('Delete this annotation?')) return;
 
     try {
       const response = await fetch(`/api/synoptics/annotations/${id}`, {
@@ -150,11 +162,11 @@ export function AnnotationBank({ siteId, layoutId, annotations, onRefresh, onClo
   );
 
   return (
-    <div className="bg-white border-l border-gray-200 w-80 h-full flex flex-col">
+    <div className="bg-white border-l border-gray-200 w-80 h-screen max-h-screen flex flex-col overflow-hidden">
       {/* Header - Fixed */}
       <div className="p-4 border-b border-gray-200 bg-white flex-shrink-0">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold text-gray-900">Banque Annotations</h2>
+          <h2 className="text-lg font-semibold text-gray-900">Annotation Library</h2>
           <Button onClick={onClose} variant="ghost" size="sm" className="h-8 w-8 p-0">
             <X className="h-4 w-4" />
           </Button>
@@ -164,7 +176,7 @@ export function AnnotationBank({ siteId, layoutId, annotations, onRefresh, onClo
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
-            placeholder="Rechercher..."
+            placeholder="Search..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9 h-9"
@@ -174,21 +186,21 @@ export function AnnotationBank({ siteId, layoutId, annotations, onRefresh, onClo
 
       {/* Instructions - Fixed */}
       <div className="p-4 bg-blue-50 border-b border-blue-200 text-sm text-blue-700 flex-shrink-0">
-        <p className="font-medium mb-1">💡 Comment ajouter ?</p>
-        <p className="text-xs">Cliquez sur "Ajouter" puis déplacez l'annotation sur le canvas</p>
+        <p className="font-medium mb-1">💡 How to add?</p>
+        <p className="text-xs">Click "Add" then move the annotation on the canvas</p>
       </div>
 
       {/* Content - Scrollable */}
-      <div className="flex-1 overflow-y-auto min-h-0">
+      <ScrollArea className="flex-1 min-h-0 h-full">
         {isLoading ? (
-          <div className="p-4 text-center text-gray-500">Chargement...</div>
+          <div className="p-4 text-center text-gray-500">Loading...</div>
         ) : (
           <>
             {/* Buildings */}
             <div className="border-b border-gray-200">
               <div className="p-3 bg-gray-50 flex items-center gap-2">
                 <Building2 className="h-4 w-4 text-gray-600" />
-                <span className="font-semibold text-sm text-gray-700">Bâtiments ({filteredBuildings.length})</span>
+                <span className="font-semibold text-sm text-gray-700">Buildings ({filteredBuildings.length})</span>
               </div>
               <div className="divide-y divide-gray-100">
                 {filteredBuildings.map((building) => {
@@ -206,7 +218,7 @@ export function AnnotationBank({ siteId, layoutId, annotations, onRefresh, onClo
                         className="ml-2 h-7 text-xs"
                         disabled={isAdded}
                       >
-                        {isAdded ? 'Ajouté' : 'Ajouter'}
+                        {isAdded ? 'Added' : 'Add'}
                       </Button>
                     </div>
                   );
@@ -218,7 +230,7 @@ export function AnnotationBank({ siteId, layoutId, annotations, onRefresh, onClo
             <div className="border-b border-gray-200">
               <div className="p-3 bg-gray-50 flex items-center gap-2">
                 <Layers className="h-4 w-4 text-gray-600" />
-                <span className="font-semibold text-sm text-gray-700">Étages ({filteredFloors.length})</span>
+                <span className="font-semibold text-sm text-gray-700">Floors ({filteredFloors.length})</span>
               </div>
               <div className="divide-y divide-gray-100">
                 {filteredFloors.map((floor) => {
@@ -239,7 +251,7 @@ export function AnnotationBank({ siteId, layoutId, annotations, onRefresh, onClo
                         className="ml-2 h-7 text-xs"
                         disabled={isAdded}
                       >
-                        {isAdded ? 'Ajouté' : 'Ajouter'}
+                        {isAdded ? 'Added' : 'Add'}
                       </Button>
                     </div>
                   );
@@ -272,7 +284,7 @@ export function AnnotationBank({ siteId, layoutId, annotations, onRefresh, onClo
                         className="ml-2 h-7 text-xs"
                         disabled={isAdded}
                       >
-                        {isAdded ? 'Ajouté' : 'Ajouter'}
+                        {isAdded ? 'Added' : 'Add'}
                       </Button>
                     </div>
                   );
@@ -281,13 +293,13 @@ export function AnnotationBank({ siteId, layoutId, annotations, onRefresh, onClo
             </div>
           </>
         )}
-      </div>
+      </ScrollArea>
 
-      {/* Annotations déjà ajoutées */}
+      {/* Annotations already added */}
       {annotations.length > 0 && (
         <div className="border-t-2 border-gray-300 bg-gray-50">
           <div className="p-3 border-b border-gray-200">
-            <span className="font-semibold text-sm text-gray-700">Sur le canvas ({annotations.length})</span>
+            <span className="font-semibold text-sm text-gray-700">On the canvas ({annotations.length})</span>
           </div>
           <div className="max-h-48 overflow-y-auto divide-y divide-gray-200">
             {annotations.map((annotation) => (

@@ -45,6 +45,7 @@ interface SynopticViewerProps {
   // Annotations (ReactFlow nodes)
   annotations?: Annotation[];
   showAnnotations?: boolean;
+  showLocationBadges?: boolean;
 }
 
 const GAS_COLORS = {
@@ -77,6 +78,7 @@ export function SynopticViewer({
   edgeToolMode = 'select',
   annotations = [],
   showAnnotations = true,
+  showLocationBadges = false,
 }: SynopticViewerProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const { screenToFlowPosition } = useReactFlow();
@@ -131,6 +133,7 @@ export function SynopticViewer({
           isSelected,
           isDownstream,
           editable, // Pass editable to node data for handle visibility
+          showLocationBadges,
         },
         draggable: editable,
         // Apply visibility styling
@@ -141,7 +144,7 @@ export function SynopticViewer({
         className: isHighlighted ? 'ring-4 ring-yellow-400 ring-offset-2' : '',
       };
     });
-  }, [initialNodes, editable, visibleNodeIds, highlightedNodeIds, selectedNodeId, downstreamNodeIds]);
+  }, [initialNodes, editable, visibleNodeIds, highlightedNodeIds, selectedNodeId, downstreamNodeIds, showLocationBadges]);
 
   const cutModeActive = editable && edgeToolMode === 'cut';
 
