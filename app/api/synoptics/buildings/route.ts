@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUser } from '@/lib/db/queries';
-import { createBuilding, getBuildingsBySiteId } from '@/lib/db/synoptics-queries';
+import { createBuilding, getBuildingsBySiteId, deleteBuilding } from '@/lib/db/synoptics-queries';
 import { z } from 'zod';
 
 const buildingSchema = z.object({
@@ -63,6 +63,36 @@ export async function POST(request: NextRequest) {
     }
 
     console.error('Error creating building:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const user = await getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const buildingId = searchParams.get('buildingId');
+
+    if (!buildingId) {
+      return NextResponse.json(
+        { error: 'buildingId is required' },
+        { status: 400 }
+      );
+    }
+
+    await deleteBuilding(buildingId);
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting building:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

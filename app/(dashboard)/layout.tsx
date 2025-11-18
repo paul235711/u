@@ -5,6 +5,8 @@ import Image from 'next/image';
 import { use, useState, Suspense } from 'react';
 import { Button } from '@/components/ui/button';
 import { Home, LogOut, Building2 } from 'lucide-react';
+import { useI18n } from '@/app/i18n-provider';
+import { LocaleSwitcher } from '@/components/locale-switcher';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,6 +25,7 @@ function UserMenu() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { data: user } = useSWR<User>('/api/user', fetcher);
   const router = useRouter();
+  const { t } = useI18n();
 
   async function handleSignOut() {
     await signOut();
@@ -37,10 +40,10 @@ function UserMenu() {
           href="/pricing"
           className="text-sm font-medium text-gray-700 hover:text-gray-900"
         >
-          Pricing
+          {t('header.nav.pricing')}
         </Link>
         <Button asChild className="rounded-full">
-          <Link href="/sign-up">Sign Up</Link>
+          <Link href="/sign-up">{t('header.nav.signup')}</Link>
         </Button>
       </>
     );
@@ -63,20 +66,20 @@ function UserMenu() {
         <DropdownMenuItem className="cursor-pointer">
           <Link href="/dashboard" className="flex w-full items-center">
             <Home className="mr-2 h-4 w-4" />
-            <span>Dashboard</span>
+            <span>{t('header.nav.dashboard')}</span>
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem className="cursor-pointer">
           <Link href="/synoptics" className="flex w-full items-center">
             <Building2 className="mr-2 h-4 w-4" />
-            <span>Sites</span>
+            <span>{t('header.nav.sites')}</span>
           </Link>
         </DropdownMenuItem>
         <form action={handleSignOut} className="w-full">
           <button type="submit" className="flex w-full">
             <DropdownMenuItem className="w-full flex-1 cursor-pointer">
               <LogOut className="mr-2 h-4 w-4" />
-              <span>Sign out</span>
+              <span>{t('header.nav.signout')}</span>
             </DropdownMenuItem>
           </button>
         </form>
@@ -122,6 +125,7 @@ function Header() {
           <span className="ml-2 text-xl font-semibold text-gray-900">VMap</span>
         </Link>
         <div className="flex items-center space-x-6">
+          <LocaleSwitcher />
           <Suspense fallback={<div className="h-9" />}>
             <UserMenu />
           </Suspense>

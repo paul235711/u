@@ -3,6 +3,7 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SiteHierarchyManager, SiteEquipmentMap } from '@/components/synoptics';
 import { Building2, MapPin } from 'lucide-react';
+import { useI18n } from '@/app/i18n-provider';
 
 interface SiteDetailClientProps {
   siteData: any;
@@ -14,17 +15,18 @@ interface SiteDetailClientProps {
 export function SiteDetailClient({ siteData, siteId, organizationId, layouts }: SiteDetailClientProps) {
   const latitude = siteData?.latitude ? parseFloat(siteData.latitude) : undefined;
   const longitude = siteData?.longitude ? parseFloat(siteData.longitude) : undefined;
+  const { t } = useI18n();
 
   return (
     <Tabs defaultValue="hierarchy" className="w-full">
       <TabsList className="grid w-full max-w-lg grid-cols-2">
         <TabsTrigger value="hierarchy" className="flex items-center gap-2">
           <Building2 className="h-4 w-4" />
-          Hierarchy
+          {t('synoptics.siteDetail.tabs.hierarchy')}
         </TabsTrigger>
         <TabsTrigger value="map" className="flex items-center gap-2">
           <MapPin className="h-4 w-4" />
-          Map
+          {t('synoptics.siteDetail.tabs.map')}
         </TabsTrigger>
       </TabsList>
       

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUser } from '@/lib/db/queries';
-import { createFloor, getFloorsByBuildingId } from '@/lib/db/synoptics-queries';
+import { createFloor, getFloorsByBuildingId, deleteFloor } from '@/lib/db/synoptics-queries';
 import { z } from 'zod';
 
 const floorSchema = z.object({
@@ -62,6 +62,36 @@ export async function POST(request: NextRequest) {
     }
 
     console.error('Error creating floor:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const user = await getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const floorId = searchParams.get('floorId');
+
+    if (!floorId) {
+      return NextResponse.json(
+        { error: 'floorId is required' },
+        { status: 400 }
+      );
+    }
+
+    await deleteFloor(floorId);
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting floor:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

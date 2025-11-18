@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { 
   Building2, Plus, Layers, Box, ChevronDown, ChevronRight, 
-  Loader2, Edit
+  Loader2, Edit, Trash2
 } from 'lucide-react';
 import { useHierarchyStore } from '../../stores/hierarchy-store';
 import { Badge } from '@/components/ui/badge';
@@ -27,6 +27,7 @@ import { QuickLayoutDialog } from './QuickLayoutDialog';
 import { QuickValveDialog } from './QuickValveDialog';
 import { LayoutSelectorDialog } from './LayoutSelectorDialog';
 import { ValveListDialog } from './ValveListDialog';
+import { useI18n } from '@/app/i18n-provider';
 
 interface SiteHierarchyManagerOptimizedProps {
   siteData: any;
@@ -38,6 +39,7 @@ interface SiteHierarchyManagerOptimizedProps {
 export function SiteHierarchyManagerOptimized({ siteData, siteId, organizationId, layouts }: SiteHierarchyManagerOptimizedProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { t } = useI18n();
   
   // Load real valve counts
   const { data: valveCounts = {} } = useValveCounts(siteId);
@@ -122,14 +124,15 @@ export function SiteHierarchyManagerOptimized({ siteData, siteId, organizationId
       // Generate ordinal name if not provided
       const getOrdinalName = (num: number) => {
         const absNum = Math.abs(num);
-        if (absNum === 0) return 'Ground Floor';
-        if (num < 0) return `Basement ${absNum}`;
-        
-        const suffixes = ['th', 'st', 'nd', 'rd'];
-        const v = absNum % 100;
-        const suffix = suffixes[(v - 20) % 10] || suffixes[v] || suffixes[0];
-        
-        return `${absNum}${suffix} Floor`;
+        if (absNum === 0) {
+          return t('synoptics.hierarchy.floor.auto.ground');
+        }
+
+        if (num < 0) {
+          return `${t('synoptics.hierarchy.floor.auto.basementPrefix')}${absNum}`;
+        }
+
+        return `${t('synoptics.hierarchy.floor.auto.abovePrefix')}${absNum}`;
       };
       
       const response = await fetch('/api/synoptics/floors', {
@@ -168,6 +171,48 @@ export function SiteHierarchyManagerOptimized({ siteData, siteId, organizationId
     },
   });
 
+  const deleteBuildingMutation = useMutation({
+    mutationFn: async (buildingId: string) => {
+      const response = await fetch(`/api/synoptics/buildings?buildingId=${buildingId}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) throw new Error('Failed to delete building');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['site-hierarchy', siteId] });
+      router.refresh();
+    },
+  });
+
+  const deleteFloorMutation = useMutation({
+    mutationFn: async (floorId: string) => {
+      const response = await fetch(`/api/synoptics/floors?floorId=${floorId}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) throw new Error('Failed to delete floor');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['site-hierarchy', siteId] });
+      router.refresh();
+    },
+  });
+
+  const deleteZoneMutation = useMutation({
+    mutationFn: async (zoneId: string) => {
+      const response = await fetch(`/api/synoptics/zones?zoneId=${zoneId}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) throw new Error('Failed to delete zone');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['site-hierarchy', siteId] });
+      router.refresh();
+    },
+  });
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -175,6 +220,12 @@ export function SiteHierarchyManagerOptimized({ siteData, siteId, organizationId
       </div>
     );
   }
+
+  const buildingCount = hierarchyData?.buildings?.length || 0;
+  const buildingLabel =
+    buildingCount === 1
+      ? t('synoptics.hierarchy.header.building.singular')
+      : t('synoptics.hierarchy.header.building.plural');
 
   return (
     <div className="space-y-4">
@@ -198,7 +249,7 @@ export function SiteHierarchyManagerOptimized({ siteData, siteId, organizationId
               />
             </div>
             <p className="text-sm text-gray-600">
-              {hierarchyData?.buildings?.length || 0} building{hierarchyData?.buildings?.length !== 1 ? 's' : ''}
+              {buildingCount} {buildingLabel}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -208,7 +259,9 @@ export function SiteHierarchyManagerOptimized({ siteData, siteId, organizationId
               onClick={() => setEditMode(!isEditMode)}
             >
               <Edit className="h-4 w-4 mr-2" />
-              {isEditMode ? 'Done' : 'Edit'}
+              {isEditMode
+                ? t('synoptics.hierarchy.header.done')
+                : t('synoptics.hierarchy.header.edit')}
             </Button>
             
             {isEditMode && (
@@ -217,7 +270,7 @@ export function SiteHierarchyManagerOptimized({ siteData, siteId, organizationId
                 onClick={() => setAddingBuilding(true)}
               >
                 <Plus className="h-4 w-4 mr-2" />
-                Add Building
+                {t('synoptics.hierarchy.header.addBuilding')}
               </Button>
             )}
           </div>
@@ -227,7 +280,7 @@ export function SiteHierarchyManagerOptimized({ siteData, siteId, organizationId
       {/* Add Building Form */}
       {addingBuilding && (
         <InlineForm
-          placeholder="Building name"
+          placeholder={t('synoptics.hierarchy.inline.buildingPlaceholder')}
           onSubmit={(name) => createBuildingMutation.mutate(name)}
           onCancel={() => setAddingBuilding(false)}
           isSubmitting={createBuildingMutation.isPending}
@@ -256,7 +309,10 @@ export function SiteHierarchyManagerOptimized({ siteData, siteId, organizationId
                   <div>
                     <h3 className="font-semibold">{building.name}</h3>
                     <p className="text-sm text-gray-500">
-                      {building.floors?.length || 0} floor{building.floors?.length !== 1 ? 's' : ''}
+                      {(building.floors?.length || 0)}{' '}
+                      {(building.floors?.length || 0) === 1
+                        ? t('synoptics.hierarchy.header.floor.singular')
+                        : t('synoptics.hierarchy.header.floor.plural')}
                     </p>
                   </div>
                 </button>
@@ -297,19 +353,42 @@ export function SiteHierarchyManagerOptimized({ siteData, siteId, organizationId
                   </div>
                   
                   {isEditMode && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setAddingFloorTo(building.id);
-                        if (!expandedBuildings.has(building.id)) {
-                          toggleBuilding(building.id); // Auto-expand
-                        }
-                      }}
-                    >
-                      <Plus className="h-4 w-4 mr-1" />
-                      Add Floor
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setAddingFloorTo(building.id);
+                          if (!expandedBuildings.has(building.id)) {
+                            toggleBuilding(building.id); // Auto-expand
+                          }
+                        }}
+                      >
+                        <Plus className="h-4 w-4 mr-1" />
+                        {t('synoptics.hierarchy.inline.addFloorButton')}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        title={t('synoptics.hierarchy.inline.editBuildingTooltip')}
+                        onClick={() => {
+                          router.push(`/synoptics/buildings/${building.id}/edit`);
+                        }}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-red-600 hover:text-red-700"
+                        onClick={() => {
+                          if (!window.confirm(t('synoptics.hierarchy.deleteBuilding.confirm'))) return;
+                          deleteBuildingMutation.mutate(building.id);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -408,19 +487,42 @@ export function SiteHierarchyManagerOptimized({ siteData, siteId, organizationId
                             </div>
                             
                             {isEditMode && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  setAddingZoneTo(floor.id);
-                                  if (!isFloorExpanded) {
-                                    toggleFloor(floor.id); // Auto-expand
-                                  }
-                                }}
-                              >
-                                <Plus className="h-3 w-3 mr-1" />
-                                Add Zone
-                              </Button>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setAddingZoneTo(floor.id);
+                                    if (!isFloorExpanded) {
+                                      toggleFloor(floor.id); // Auto-expand
+                                    }
+                                  }}
+                                >
+                                  <Plus className="h-3 w-3 mr-1" />
+                                  {t('synoptics.hierarchy.inline.addZoneButton')}
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  title={t('synoptics.hierarchy.inline.editFloorTooltip')}
+                                  onClick={() => {
+                                    router.push(`/synoptics/buildings/${building.id}/floors/${floor.id}/edit`);
+                                  }}
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-red-600 hover:text-red-700"
+                                  onClick={() => {
+                                    if (!window.confirm(t('synoptics.hierarchy.deleteFloor.confirm'))) return;
+                                    deleteFloorMutation.mutate(floor.id);
+                                  }}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
                             )}
                           </div>
                         </div>
@@ -432,7 +534,7 @@ export function SiteHierarchyManagerOptimized({ siteData, siteId, organizationId
                             {addingZoneTo === floor.id && (
                               <div className="ml-6">
                                 <InlineForm
-                                  placeholder="Zone name"
+                                  placeholder={t('synoptics.hierarchy.inline.zonePlaceholder')}
                                   onSubmit={(name) => createZoneMutation.mutate({ name, floorId: floor.id })}
                                   onCancel={() => setAddingZoneTo(null)}
                                   isSubmitting={createZoneMutation.isPending}
@@ -479,6 +581,32 @@ export function SiteHierarchyManagerOptimized({ siteData, siteId, organizationId
                                       allSiteGases={allSiteGases}
                                       size="sm"
                                     />
+                                    {isEditMode && (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-5 px-1.5"
+                                        title={t('synoptics.hierarchy.inline.editZoneTooltip')}
+                                        onClick={() => {
+                                          router.push(`/synoptics/zones/${zone.id}/edit`);
+                                        }}
+                                      >
+                                        <Edit className="h-4 w-4" />
+                                      </Button>
+                                    )}
+                                    {isEditMode && (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="text-red-600 hover:text-red-700"
+                                        onClick={() => {
+                                          if (!window.confirm(t('synoptics.hierarchy.deleteZone.confirm'))) return;
+                                          deleteZoneMutation.mutate(zone.id);
+                                        }}
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    )}
                                   </div>
                                 </div>
                               </div>
@@ -565,6 +693,7 @@ function InlineForm({
   isSubmitting: boolean;
 }) {
   const [value, setValue] = useState('');
+  const { t } = useI18n();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -584,10 +713,14 @@ function InlineForm({
         autoFocus
       />
       <Button type="submit" size="sm" disabled={isSubmitting || !value.trim()}>
-        {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Add'}
+        {isSubmitting ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          t('synoptics.hierarchy.inline.addButton')
+        )}
       </Button>
       <Button type="button" size="sm" variant="outline" onClick={onCancel} disabled={isSubmitting}>
-        Cancel
+        {t('common.cancel')}
       </Button>
     </form>
   );
@@ -605,6 +738,7 @@ function FloorInlineForm({
 }) {
   const [number, setNumber] = useState('');
   const [name, setName] = useState('');
+  const { t } = useI18n();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -625,7 +759,7 @@ function FloorInlineForm({
         type="number"
         value={number}
         onChange={(e) => setNumber(e.target.value)}
-        placeholder="Floor number *"
+        placeholder={t('synoptics.hierarchy.inline.floorNumberPlaceholder')}
         disabled={isSubmitting}
         autoFocus
         className="w-32"
@@ -633,15 +767,19 @@ function FloorInlineForm({
       <Input
         value={name}
         onChange={(e) => setName(e.target.value)}
-        placeholder="Floor name (optional)"
+        placeholder={t('synoptics.hierarchy.inline.floorNamePlaceholder')}
         disabled={isSubmitting}
         className="flex-1"
       />
       <Button type="submit" size="sm" disabled={isSubmitting || !number.trim()}>
-        {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Add'}
+        {isSubmitting ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          t('synoptics.hierarchy.inline.addButton')
+        )}
       </Button>
       <Button type="button" size="sm" variant="outline" onClick={onCancel} disabled={isSubmitting}>
-        Cancel
+        {t('common.cancel')}
       </Button>
     </form>
   );

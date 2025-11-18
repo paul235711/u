@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUser } from '@/lib/db/queries';
-import { createConnection } from '@/lib/db/synoptics-queries';
+import { createConnection, getConnectionsBySiteId } from '@/lib/db/synoptics-queries';
 import { z } from 'zod';
 
 const connectionSchema = z.object({
@@ -10,6 +10,35 @@ const connectionSchema = z.object({
   gasType: z.string().min(1),
   diameterMm: z.string().optional().nullable(),
 });
+
+export async function GET(request: NextRequest) {
+  try {
+    const user = await getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const siteId = searchParams.get('siteId');
+
+    if (!siteId) {
+      return NextResponse.json(
+        { error: 'siteId query parameter is required' },
+        { status: 400 }
+      );
+    }
+
+    const siteConnections = await getConnectionsBySiteId(siteId);
+    return NextResponse.json(siteConnections);
+  } catch (error) {
+    console.error('Error fetching connections:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {

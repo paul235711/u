@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,6 +10,7 @@ import { MapPicker } from '@/components/mapbox/map-picker';
 import { Loader2 } from 'lucide-react';
 import { parseApiError, validateName, validateLatitude, validateLongitude } from '../shared/form-utils';
 import { useToast, ToastContainer } from '../shared/use-toast';
+import { useI18n } from '@/app/i18n-provider';
 
 interface BuildingFormProps {
   siteId: string;
@@ -24,6 +26,8 @@ interface BuildingFormProps {
 
 export function BuildingForm({ siteId, initialData, buildingId, siteLat, siteLng }: BuildingFormProps) {
   const router = useRouter();
+  const { t } = useI18n();
+  const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -52,7 +56,7 @@ export function BuildingForm({ siteId, initialData, buildingId, siteLat, siteLng
     // Client-side validation
     const errors: Record<string, string> = {};
     
-    const nameError = validateName(formData.name, 'Building name');
+    const nameError = validateName(formData.name, t('synoptics.buildingForm.name.label'));
     if (nameError) errors.name = nameError;
 
     if (formData.latitude) {
@@ -94,9 +98,14 @@ export function BuildingForm({ siteId, initialData, buildingId, siteLat, siteLng
         throw new Error(errorMessage);
       }
 
+      // Invalidate hierarchy cache so the site detail page refetches
+      queryClient.invalidateQueries({ queryKey: ['site-hierarchy', siteId] });
+
       // Show success message
       showToast(
-        buildingId ? 'Building updated successfully' : 'Building created successfully',
+        buildingId
+          ? t('synoptics.buildingForm.toast.updateSuccess')
+          : t('synoptics.buildingForm.toast.createSuccess'),
         'success'
       );
 
@@ -122,7 +131,7 @@ export function BuildingForm({ siteId, initialData, buildingId, siteLat, siteLng
       )}
 
       <div>
-        <Label htmlFor="name">Building Name *</Label>
+        <Label htmlFor="name">{t('synoptics.buildingForm.name.label')}</Label>
         <Input
           id="name"
           type="text"
@@ -134,7 +143,7 @@ export function BuildingForm({ siteId, initialData, buildingId, siteLat, siteLng
               setFieldErrors((prev) => ({ ...prev, name: '' }));
             }
           }}
-          placeholder="e.g., Main Building, East Wing"
+          placeholder={t('synoptics.buildingForm.name.placeholder')}
           className="mt-1"
           aria-invalid={!!fieldErrors.name}
           aria-describedby={fieldErrors.name ? 'name-error' : undefined}
@@ -147,9 +156,9 @@ export function BuildingForm({ siteId, initialData, buildingId, siteLat, siteLng
       </div>
 
       <div>
-        <Label>Location</Label>
+        <Label>{t('synoptics.buildingForm.location.label')}</Label>
         <p className="text-xs text-gray-500 mt-1 mb-2">
-          Click on the map to set the building location
+          {t('synoptics.buildingForm.location.help')}
         </p>
         <div className="mt-1">
           <MapPicker
@@ -164,7 +173,7 @@ export function BuildingForm({ siteId, initialData, buildingId, siteLat, siteLng
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <Label htmlFor="latitude">Latitude (auto-filled)</Label>
+          <Label htmlFor="latitude">{t('synoptics.buildingForm.latitude.label')}</Label>
           <Input
             id="latitude"
             type="text"
@@ -180,7 +189,7 @@ export function BuildingForm({ siteId, initialData, buildingId, siteLat, siteLng
           )}
         </div>
         <div>
-          <Label htmlFor="longitude">Longitude (auto-filled)</Label>
+          <Label htmlFor="longitude">{t('synoptics.buildingForm.longitude.label')}</Label>
           <Input
             id="longitude"
             type="text"
@@ -204,11 +213,15 @@ export function BuildingForm({ siteId, initialData, buildingId, siteLat, siteLng
           onClick={() => router.back()}
           disabled={isSubmitting}
         >
-          Cancel
+          {t('common.cancel')}
         </Button>
         <Button type="submit" disabled={isSubmitting}>
           {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          {isSubmitting ? 'Saving...' : buildingId ? 'Update Building' : 'Create Building'}
+          {isSubmitting
+            ? t('synoptics.buildingForm.submit.saving')
+            : buildingId
+              ? t('synoptics.buildingForm.submit.update')
+              : t('synoptics.buildingForm.submit.create')}
         </Button>
       </div>
     </form>

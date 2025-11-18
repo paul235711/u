@@ -6,6 +6,7 @@ import { ChevronRight, MapPin } from 'lucide-react';
 import { notFound } from 'next/navigation';
 import { SiteHierarchyManager } from '@/components/synoptics';
 import { SiteDetailClient } from './site-detail-client';
+import { getRequestLocale, getMessages } from '@/lib/i18n/server';
 
 // Force dynamic rendering to prevent stale cached data
 export const dynamic = 'force-dynamic';
@@ -30,15 +31,15 @@ export default async function SiteDetailPage({
   }
 
   const layouts = await getLayoutsBySiteId(siteId);
+  const locale = await getRequestLocale();
+  const messages = getMessages(locale);
   
   // Get organization for equipment manager
   const teamData = await getTeamForUser();
-  let organization = (teamData as any)?.team ? await getOrganizationByTeamId((teamData as any).team.id) : null;
-  
-  // Fallback: get organization from site data
-  if (!organization && siteData.organizationId) {
-    organization = { id: siteData.organizationId };
-  }
+  const organization = (teamData as any)?.team
+    ? await getOrganizationByTeamId((teamData as any).team.id)
+    : null;
+  const organizationId = organization?.id ?? siteData.organizationId ?? '';
 
   return (
     <div className="flex-1 w-full">
@@ -47,7 +48,7 @@ export default async function SiteDetailPage({
         <div className="mb-8">
           <div className="flex items-center text-sm text-gray-500 mb-4">
             <Link href="/synoptics" className="hover:text-gray-700">
-              Sites
+              {messages['synoptics.siteDetail.breadcrumb.sites']}
             </Link>
             <ChevronRight className="h-4 w-4 mx-2" />
             <span className="text-gray-900">{siteData.name}</span>
@@ -70,7 +71,7 @@ export default async function SiteDetailPage({
         <SiteDetailClient 
           siteData={siteData}
           siteId={siteId}
-          organizationId={organization?.id || ''}
+          organizationId={organizationId}
           layouts={layouts}
         />
       </div>

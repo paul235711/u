@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import mapboxgl, { MapboxGeoJSONFeature } from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { Loader2 } from 'lucide-react';
@@ -35,6 +35,8 @@ interface EquipmentMapViewProps {
   mapCenter: [number, number];
   onMapReady: (ready: boolean) => void;
   mapReady: boolean;
+  focusedEquipmentId?: string | null;
+  onFeatureClick?: (id: string) => void;
 }
 
 function humanise(text: string): string {
@@ -59,12 +61,23 @@ export function EquipmentMapView({
   mapCenter,
   onMapReady,
   mapReady,
+  focusedEquipmentId,
+  onFeatureClick,
 }: EquipmentMapViewProps) {
   console.log('[EquipmentMapView] Component rendering');
   
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const popupRef = useRef<mapboxgl.Popup | null>(null);
+
+  const [mapStyle, setMapStyle] = useState<'standard' | 'light' | 'satellite'>('standard');
+
+  const styleUrl =
+    mapStyle === 'standard'
+      ? 'mapbox://styles/mapbox/standard'
+      : mapStyle === 'light'
+      ? 'mapbox://styles/mapbox/light-v11'
+      : 'mapbox://styles/mapbox/satellite-streets-v12';
 
   // Initialize map
   useEffect(() => {
@@ -101,7 +114,7 @@ export function EquipmentMapView({
 
       const map = new mapboxgl.Map({
         container: containerRef.current,
-        style: 'mapbox://styles/mapbox/light-v11',
+        style: styleUrl,
         center: mapCenter,
         zoom: DEFAULT_ZOOM,
       });
@@ -114,6 +127,31 @@ export function EquipmentMapView({
     map.on('load', () => {
       console.log('[EquipmentMapView] Map loaded successfully');
       console.log('[EquipmentMapView] Map container size:', containerRef.current?.offsetWidth, 'x', containerRef.current?.offsetHeight);
+
+      // Hide non-street labels from the base style (keep only street names)
+      try {
+        const style = map.getStyle();
+        const layers = (style && (style as any).layers) as Array<any> | undefined;
+        if (layers) {
+          layers.forEach((layer) => {
+            if (layer.type !== 'symbol') return;
+            const id: string = layer.id ?? '';
+            const sourceLayer: string | undefined = layer['source-layer'];
+
+            const lowerId = id.toLowerCase();
+            const isStreetLabel =
+              (sourceLayer && sourceLayer.includes('road-label')) ||
+              lowerId.includes('road-label') ||
+              lowerId.includes('street-label');
+
+            if (!isStreetLabel) {
+              map.setLayoutProperty(id, 'visibility', 'none');
+            }
+          });
+        }
+      } catch (error) {
+        console.warn('[EquipmentMapView] Failed to filter base labels:', error);
+      }
       
       // Force resize to ensure map renders
       setTimeout(() => {
@@ -133,6 +171,30 @@ export function EquipmentMapView({
         clusterRadius: 44,
       });
       console.log('[EquipmentMapView] Source added');
+
+      // Auto-fit map to all equipment points on initial load
+      try {
+        if (featureCollection.features.length > 0) {
+          const bounds = new mapboxgl.LngLatBounds();
+          featureCollection.features.forEach((feature: any) => {
+            if (feature.geometry?.type === 'Point') {
+              const coords = toLngLatTuple(feature.geometry.coordinates);
+              if (coords) {
+                bounds.extend(coords);
+              }
+            }
+          });
+
+          if (!bounds.isEmpty()) {
+            map.fitBounds(bounds, {
+              padding: 80,
+              maxZoom: 18,
+            });
+          }
+        }
+      } catch (error) {
+        console.warn('[EquipmentMapView] Failed to auto-fit bounds:', error);
+      }
 
       // Cluster circles
       map.addLayer({
@@ -187,19 +249,28 @@ export function EquipmentMapView({
             'alarm', STATUS_PALETTE.alarm.color,
             STATUS_PALETTE.unknown.color,
           ],
-          'circle-opacity': 0.85,
+          'circle-opacity': [
+            'case',
+            ['==', ['get', 'highlightType'], 'selected'],
+            1.0,
+            ['==', ['get', 'highlightType'], 'downstream'],
+            0.9,
+            ['==', ['get', 'highlightType'], 'default'],
+            0.85,
+            0.25,
+          ],
           'circle-stroke-color': '#ffffff',
           'circle-stroke-width': 2,
         },
       });
 
       map.addLayer({
-        id: 'equipment-valves-circle',
+        id: 'equipment-valves-halo',
         type: 'circle',
         source: 'equipment',
         filter: ['all', ['!', ['has', 'point_count']], ['==', ['get', 'nodeType'], 'valve']],
         paint: {
-          'circle-radius': 10,
+          'circle-radius': 16,
           'circle-color': [
             'match',
             ['get', 'gasType'],
@@ -213,7 +284,41 @@ export function EquipmentMapView({
             'compressed_air', GAS_COLORS.compressed_air,
             GAS_COLORS.carbon_dioxide,
           ],
-          'circle-opacity': 0.9,
+          'circle-opacity': 0.18,
+          'circle-blur': 0.6,
+        },
+      });
+
+      map.addLayer({
+        id: 'equipment-valves-circle',
+        type: 'circle',
+        source: 'equipment',
+        filter: ['all', ['!', ['has', 'point_count']], ['==', ['get', 'nodeType'], 'valve']],
+        paint: {
+          'circle-radius': 12,
+          'circle-color': [
+            'match',
+            ['get', 'gasType'],
+            'oxygen', GAS_COLORS.oxygen,
+            'medical_air', GAS_COLORS.medical_air,
+            'vacuum', GAS_COLORS.vacuum,
+            'nitrogen', GAS_COLORS.nitrogen,
+            'nitrous_oxide', GAS_COLORS.nitrous_oxide,
+            'carbon_dioxide', GAS_COLORS.carbon_dioxide,
+            'co2', GAS_COLORS.co2,
+            'compressed_air', GAS_COLORS.compressed_air,
+            GAS_COLORS.carbon_dioxide,
+          ],
+          'circle-opacity': [
+            'case',
+            ['==', ['get', 'highlightType'], 'selected'],
+            1.0,
+            ['==', ['get', 'highlightType'], 'downstream'],
+            0.95,
+            ['==', ['get', 'highlightType'], 'default'],
+            0.9,
+            0.3,
+          ],
           'circle-stroke-color': '#ffffff',
           'circle-stroke-width': 2,
         },
@@ -264,6 +369,108 @@ export function EquipmentMapView({
         });
       });
 
+      const attachPopupCloseHandler = () => {
+        if (!popupRef.current) return;
+        const el = popupRef.current.getElement();
+        if (!(el instanceof HTMLElement)) return;
+        const content = el.querySelector('.mapboxgl-popup-content') as HTMLDivElement | null;
+        if (content) {
+          content.style.background = 'transparent';
+          content.style.boxShadow = 'none';
+          content.style.borderRadius = '0';
+          content.style.border = 'none';
+          content.style.padding = '0';
+        }
+        const closeBtn = el.querySelector('.synoptic-popup-close') as HTMLButtonElement | null;
+        if (!closeBtn) return;
+        closeBtn.onclick = (e) => {
+          e.stopPropagation();
+          popupRef.current?.remove();
+        };
+      };
+
+      const buildPopupHtml = (
+        props: Record<string, any>,
+        imageUrl?: string,
+        options?: { loadingMedia?: boolean }
+      ): string => {
+        const loadingMedia = options?.loadingMedia ?? false;
+        const name = props.name ?? 'Equipment';
+        const gasType = props.gasType ?? 'unknown';
+        const nodeType = humanise(props.nodeType ?? 'equipment');
+        const buildingLabel = props.buildingName
+          ? `${props.buildingName}${props.floorName ? ` · ${props.floorName}` : ''}`
+          : '';
+        const gasKey = String(gasType);
+        const gasColor = GAS_COLORS[gasKey] ?? GAS_COLORS['carbon_dioxide'];
+        const gasLabel = humanise(String(gasKey));
+
+        const badgeStyle = gasColor
+          ? `style="border-color:${gasColor};"`
+          : '';
+
+        const badgeInner = props.nodeType === 'valve'
+          ? `<img src="/valve.svg" alt="Valve" class="h-3.5 w-3.5" />`
+          : `<span class="text-[11px] font-semibold">${(props.nodeType ?? '?')[0]?.toUpperCase?.() ?? 'N'}</span>`;
+
+        const gasPillStyle = gasColor
+          ? `style="color:${gasColor};border-color:${gasColor};"`
+          : '';
+
+        return `
+          <div class="synoptic-popup relative min-w-[260px] max-w-sm rounded-2xl border border-gray-200 bg-white shadow-lg overflow-hidden">
+            <button type="button" class="synoptic-popup-close absolute right-3 top-3 inline-flex h-7 w-7 items-center justify-center rounded-full border border-gray-200 bg-white/90 text-xs text-gray-500 hover:bg-gray-50 hover:text-gray-700">
+              ✕
+            </button>
+
+            <div class="flex items-start gap-3 px-4 pt-4 pb-3">
+              <div class="flex h-9 w-9 items-center justify-center rounded-xl border bg-white text-xs font-semibold" ${badgeStyle}>
+                ${badgeInner}
+              </div>
+              <div class="flex-1 space-y-0.5">
+                <div class="text-sm font-semibold text-gray-900">${nodeType} • ${name}</div>
+                <div class="text-[11px] font-medium text-gray-500">${gasLabel}</div>
+              </div>
+            </div>
+
+            ${imageUrl
+              ? `
+                  <div class="relative h-32 w-full border-y border-gray-100 bg-gray-50">
+                    <img
+                      src="${imageUrl}"
+                      alt="${name}"
+                      class="h-full w-full object-cover"
+                      onerror="this.style.display='none'"
+                    />
+                  </div>
+                `
+              : ''}
+
+            <div class="px-4 py-3 space-y-2 border-t border-gray-100">
+              ${buildingLabel
+                ? `<div class="flex items-center gap-2 text-sm font-medium text-gray-800">
+                     <span class="inline-flex h-6 w-6 items-center justify-center rounded-md bg-gray-100 text-[12px]">🏢</span>
+                     <span>${buildingLabel}</span>
+                   </div>`
+                : ''}
+
+              <div class="flex items-center justify-between">
+                <span class="inline-flex items-center rounded-full border bg-white px-2.5 py-0.5 text-[11px] font-semibold" ${gasPillStyle}>
+                  ${gasLabel}
+                </span>
+
+                ${loadingMedia
+                  ? `<div class="flex items-center gap-2 text-[11px] text-gray-400 italic">
+                       <span class="inline-flex h-3 w-3 animate-pulse rounded-full bg-gray-300"></span>
+                       <span>Loading photo...</span>
+                     </div>`
+                  : ''}
+              </div>
+            </div>
+          </div>
+        `;
+      };
+
       const handleEquipmentClick = async (event: any) => {
         const selectedFeature = event.features?.[0] as MapboxGeoJSONFeature | undefined;
         if (!selectedFeature || selectedFeature.geometry.type !== 'Point') {
@@ -273,28 +480,22 @@ export function EquipmentMapView({
         if (!coords) return;
         const props = selectedFeature.properties as Record<string, string>;
 
+        if (onFeatureClick && props.id) {
+          onFeatureClick(String(props.id));
+        }
+
         // Initial popup with loading state
-        let html = `
-          <div class="min-w-[200px] space-y-2">
-            <div class="text-sm font-semibold text-gray-900">${props.name ?? 'Equipment'}</div>
-            <div class="flex items-center gap-2 text-xs">
-              <span class="font-medium text-gray-700">${props.gasType ?? 'Unknown gas'}</span>
-              <span class="text-gray-400">·</span>
-              <span class="text-gray-500">${humanise(props.nodeType ?? 'equipment')}</span>
-            </div>
-            ${props.buildingName ? `<div class="text-xs text-gray-500">📍 ${props.buildingName}${props.floorName ? ` · ${props.floorName}` : ''}</div>` : ''}
-            <div class="text-xs text-gray-400 italic">Loading photo...</div>
-          </div>
-        `;
+        let html = buildPopupHtml(props, undefined, { loadingMedia: true });
 
         if (!popupRef.current) {
           popupRef.current = new mapboxgl.Popup({
-            closeButton: true,
+            closeButton: false,
             closeOnClick: true,
-            maxWidth: '300px',
+            maxWidth: '340px',
           });
         }
         popupRef.current.setLngLat(coords).setHTML(html).addTo(map);
+        attachPopupCloseHandler();
 
         // Try to load equipment photo
         if (props.elementId && props.nodeType) {
@@ -310,87 +511,36 @@ export function EquipmentMapView({
 
               if (firstImage) {
                 console.log('[EquipmentMapView] Found image:', firstImage.fileUrl);
-                html = `
-                  <div class="min-w-[200px] space-y-2">
-                    <div class="text-sm font-semibold text-gray-900">${props.name ?? 'Equipment'}</div>
-                    <img
-                      src="${firstImage.fileUrl}"
-                      alt="${props.name}"
-                      class="w-full h-32 object-cover rounded border border-gray-200"
-                      onerror="this.style.display='none'"
-                    />
-                    <div class="flex items-center gap-2 text-xs">
-                      <span class="font-medium text-gray-700">${props.gasType ?? 'Unknown gas'}</span>
-                      <span class="text-gray-400">·</span>
-                      <span class="text-gray-500">${humanise(props.nodeType ?? 'equipment')}</span>
-                    </div>
-                    ${props.buildingName ? `<div class="text-xs text-gray-500">📍 ${props.buildingName}${props.floorName ? ` · ${props.floorName}` : ''}</div>` : ''}
-                  </div>
-                `;
+                html = buildPopupHtml(props, firstImage.fileUrl);
                 popupRef.current.setHTML(html);
+                attachPopupCloseHandler();
               } else {
                 console.log('[EquipmentMapView] No image found in media');
                 // No photo, show simplified version
-                html = `
-                  <div class="min-w-[200px] space-y-2">
-                    <div class="text-sm font-semibold text-gray-900">${props.name ?? 'Equipment'}</div>
-                    <div class="flex items-center gap-2 text-xs">
-                      <span class="font-medium text-gray-700">${props.gasType ?? 'Unknown gas'}</span>
-                      <span class="text-gray-400">·</span>
-                      <span class="text-gray-500">${humanise(props.nodeType ?? 'equipment')}</span>
-                    </div>
-                    ${props.buildingName ? `<div class="text-xs text-gray-500">📍 ${props.buildingName}${props.floorName ? ` · ${props.floorName}` : ''}</div>` : ''}
-                  </div>
-                `;
+                html = buildPopupHtml(props);
                 popupRef.current.setHTML(html);
+                attachPopupCloseHandler();
               }
             } else {
               // API error, show simplified version
               console.warn('[EquipmentMapView] Media API error:', mediaResponse.status);
-              html = `
-                <div class="min-w-[200px] space-y-2">
-                  <div class="text-sm font-semibold text-gray-900">${props.name ?? 'Equipment'}</div>
-                  <div class="flex items-center gap-2 text-xs">
-                    <span class="font-medium text-gray-700">${props.gasType ?? 'Unknown gas'}</span>
-                    <span class="text-gray-400">·</span>
-                    <span class="text-gray-500">${humanise(props.nodeType ?? 'equipment')}</span>
-                  </div>
-                  ${props.buildingName ? `<div class="text-xs text-gray-500">📍 ${props.buildingName}${props.floorName ? ` · ${props.floorName}` : ''}</div>` : ''}
-                </div>
-              `;
+              html = buildPopupHtml(props);
               popupRef.current.setHTML(html);
+              attachPopupCloseHandler();
             }
           } catch (error) {
             console.error('[EquipmentMapView] Failed to load equipment photo:', error);
             // Show simplified version on error
-            html = `
-              <div class="min-w-[200px] space-y-2">
-                <div class="text-sm font-semibold text-gray-900">${props.name ?? 'Equipment'}</div>
-                <div class="flex items-center gap-2 text-xs">
-                  <span class="font-medium text-gray-700">${props.gasType ?? 'Unknown gas'}</span>
-                  <span class="text-gray-400">·</span>
-                  <span class="text-gray-500">${humanise(props.nodeType ?? 'equipment')}</span>
-                </div>
-                ${props.buildingName ? `<div class="text-xs text-gray-500">📍 ${props.buildingName}${props.floorName ? ` · ${props.floorName}` : ''}</div>` : ''}
-              </div>
-            `;
+            html = buildPopupHtml(props);
             popupRef.current.setHTML(html);
+            attachPopupCloseHandler();
           }
         } else {
           // No elementId or nodeType, show basic info
           console.log('[EquipmentMapView] No elementId or nodeType, showing basic info');
-          html = `
-            <div class="min-w-[200px] space-y-2">
-              <div class="text-sm font-semibold text-gray-900">${props.name ?? 'Equipment'}</div>
-              <div class="flex items-center gap-2 text-xs">
-                <span class="font-medium text-gray-700">${props.gasType ?? 'Unknown gas'}</span>
-                <span class="text-gray-400">·</span>
-                <span class="text-gray-500">${humanise(props.nodeType ?? 'equipment')}</span>
-              </div>
-              ${props.buildingName ? `<div class="text-xs text-gray-500">📍 ${props.buildingName}${props.floorName ? ` · ${props.floorName}` : ''}</div>` : ''}
-            </div>
-          `;
+          html = buildPopupHtml(props);
           popupRef.current.setHTML(html);
+          attachPopupCloseHandler();
         }
       };
 
@@ -422,8 +572,7 @@ export function EquipmentMapView({
         onMapReady(false);
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Initialize only once on mount
+  }, [mapStyle]);
 
   // Update map data when featureCollection changes
   useEffect(() => {
@@ -440,6 +589,41 @@ export function EquipmentMapView({
       console.warn('[EquipmentMapView] Source not found for data update');
     }
   }, [featureCollection, mapReady]);
+
+  // Focus and dimming when a specific equipment item is selected
+  useEffect(() => {
+    if (!mapReady || !mapRef.current) return;
+
+    const map = mapRef.current;
+
+    if (!focusedEquipmentId) {
+      return;
+    }
+
+    try {
+      const features = map.querySourceFeatures('equipment', {
+        filter: ['all', ['==', ['get', 'id'], focusedEquipmentId]],
+      });
+
+      if (features.length > 0) {
+        const feature = features[0];
+        if (feature.geometry.type === 'Point') {
+          const coords = toLngLatTuple(feature.geometry.coordinates);
+          if (coords) {
+            map.easeTo({
+              center: coords,
+              zoom: 18,
+              pitch: 25,
+              bearing: 5,
+              duration: 1000,
+            });
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('[EquipmentMapView] Failed to apply focus styling:', error);
+    }
+  }, [focusedEquipmentId, mapReady]);
 
   // Resize map on container changes
   useEffect(() => {
@@ -461,6 +645,43 @@ export function EquipmentMapView({
   return (
     <div className="relative h-[600px] w-full overflow-hidden rounded-2xl border border-gray-200 bg-gray-100">
       <div ref={containerRef} className="absolute inset-0 z-0" style={{ width: '100%', height: '100%' }} />
+
+      {/* Map style toggle */}
+      <div className="absolute top-4 left-4 z-20 flex items-center gap-1 rounded-full border border-gray-200 bg-white/90 px-1 py-1 text-xs shadow-sm backdrop-blur">
+        <button
+          type="button"
+          onClick={() => setMapStyle('standard')}
+          className={`rounded-full px-2 py-1 font-medium ${
+            mapStyle === 'standard'
+              ? 'bg-gray-900 text-white'
+              : 'text-gray-600 hover:bg-gray-100'
+          }`}
+        >
+          Std
+        </button>
+        <button
+          type="button"
+          onClick={() => setMapStyle('light')}
+          className={`rounded-full px-2 py-1 font-medium ${
+            mapStyle === 'light'
+              ? 'bg-gray-900 text-white'
+              : 'text-gray-600 hover:bg-gray-100'
+          }`}
+        >
+          Plan
+        </button>
+        <button
+          type="button"
+          onClick={() => setMapStyle('satellite')}
+          className={`rounded-full px-2 py-1 font-medium ${
+            mapStyle === 'satellite'
+              ? 'bg-gray-900 text-white'
+              : 'text-gray-600 hover:bg-gray-100'
+          }`}
+        >
+          Sat
+        </button>
+      </div>
 
       {/* Loading State */}
       {isLoading && (
