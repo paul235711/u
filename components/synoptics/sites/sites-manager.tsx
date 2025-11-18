@@ -8,6 +8,7 @@ import { SiteCard } from './site-card';
 import { CascadeDeleteDialog } from './cascade-delete-dialog';
 import { useSitesData } from './use-sites-data';
 import { useToast, ToastContainer } from '../shared/use-toast';
+import { useI18n } from '@/app/i18n-provider';
 
 interface SitesManagerProps {
   organizationId: string;
@@ -24,6 +25,7 @@ export function SitesManager({ organizationId }: SitesManagerProps) {
   } = useSitesData({ organizationId, autoRefresh: false });
 
   const { toasts, showToast, removeToast } = useToast();
+  const { t } = useI18n();
   const [deleteDialog, setDeleteDialog] = useState<{
     open: boolean;
     site: { id: string; name: string } | null;
@@ -37,7 +39,7 @@ export function SitesManager({ organizationId }: SitesManagerProps) {
       await updateSite(siteId, data);
       // Success toast is handled by the autosave in SiteCard
     } catch (error) {
-      showToast('Failed to update site', 'error');
+      showToast(t('synoptics.sites.toast.updateError'), 'error');
       throw error;
     }
   };
@@ -54,10 +56,10 @@ export function SitesManager({ organizationId }: SitesManagerProps) {
 
     try {
       await deleteSite(deleteDialog.site.id);
-      showToast('Site deleted successfully', 'success');
+      showToast(t('synoptics.sites.toast.deleteSuccess'), 'success');
       setDeleteDialog({ open: false, site: null });
     } catch (error) {
-      showToast('Failed to delete site', 'error');
+      showToast(t('synoptics.sites.toast.deleteError'), 'error');
       throw error;
     }
   };
@@ -69,7 +71,7 @@ export function SitesManager({ organizationId }: SitesManagerProps) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="flex justify-center items-center py-20">
             <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
-            <span className="ml-3 text-gray-600">Loading sites...</span>
+            <span className="ml-3 text-gray-600">{t('synoptics.sites.loading')}</span>
           </div>
         </div>
       </div>
@@ -83,7 +85,9 @@ export function SitesManager({ organizationId }: SitesManagerProps) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="flex flex-col items-center justify-center py-20">
             <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Failed to load sites</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              {t('synoptics.sites.error.title')}
+            </h3>
             <p className="text-sm text-gray-600 mb-6">{error}</p>
           </div>
         </div>
@@ -99,16 +103,18 @@ export function SitesManager({ organizationId }: SitesManagerProps) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="flex justify-between items-center mb-8">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Hospital Sites</h1>
+              <h1 className="text-3xl font-bold text-gray-900">
+                {t('synoptics.sites.title')}
+              </h1>
               <p className="mt-2 text-sm text-gray-600">
-                Manage your hospital sites and medical gas distribution networks
+                {t('synoptics.sites.subtitle')}
               </p>
             </div>
             <div className="flex gap-2">
               <Button asChild>
                 <Link href="/synoptics/sites/new">
                   <Plus className="mr-2 h-4 w-4" />
-                  New Site
+                  {t('synoptics.sites.new')}
                 </Link>
               </Button>
             </div>
@@ -117,15 +123,17 @@ export function SitesManager({ organizationId }: SitesManagerProps) {
           {sites.length === 0 ? (
             <div className="text-center py-12 bg-white rounded-lg border-2 border-dashed border-gray-300">
               <Building2 className="mx-auto h-12 w-12 text-gray-400" />
-              <h3 className="mt-2 text-sm font-semibold text-gray-900">No sites</h3>
+              <h3 className="mt-2 text-sm font-semibold text-gray-900">
+                {t('synoptics.sites.empty.title')}
+              </h3>
               <p className="mt-1 text-sm text-gray-500">
-                Get started by creating a new hospital site.
+                {t('synoptics.sites.empty.body')}
               </p>
               <div className="mt-6">
                 <Button asChild>
                   <Link href="/synoptics/sites/new">
                     <Plus className="mr-2 h-4 w-4" />
-                    New Site
+                    {t('synoptics.sites.new')}
                   </Link>
                 </Button>
               </div>

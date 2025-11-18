@@ -14,6 +14,9 @@ import { EquipmentCreateDialog } from './EquipmentCreateDialog';
 import { EquipmentDeleteDialog } from './EquipmentDeleteDialog';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
+import { EquipmentCard } from './EquipmentCard';
+import { MediaDisplay } from './MediaDisplay';
+import { useDownstreamNodes } from './hooks/useDownstreamNodes';
 
 const DEFAULT_CENTER: [number, number] = [2.3522, 48.8566];
 
@@ -61,6 +64,12 @@ interface RawNode {
   buildingId?: string | null;
   floorId?: string | null;
   zoneId?: string | null;
+}
+
+interface Connection {
+  id: string;
+  fromNodeId: string;
+  toNodeId: string;
 }
 
 export interface EquipmentFeature {
@@ -135,6 +144,7 @@ export function SiteEquipmentMap({
   const [selectedTypes, setSelectedTypes] = useState<string[]>(['valve', 'source']);
   const [selectedBuildingId, setSelectedBuildingId] = useState('all');
   const [selectedFloorId, setSelectedFloorId] = useState('all');
+  const [selectedGasTypes, setSelectedGasTypes] = useState<string[]>([]);
 
   // Edit dialog state
   const [selectedEquipment, setSelectedEquipment] = useState<EquipmentFeature | null>(null);
@@ -144,9 +154,17 @@ export function SiteEquipmentMap({
 
   // Fetch equipment data
   const { data: nodesData, isLoading, isError } = useQuery<RawNode[]>({
-    queryKey: ['site-equipment', siteId],
+    queryKey: ['site-equipment', siteId, selectedBuildingId, selectedFloorId],
     queryFn: async () => {
-      const response = await fetch(`/api/synoptics/nodes?siteId=${siteId}`);
+      let url = `/api/synoptics/nodes?siteId=${siteId}`;
+
+      if (selectedBuildingId !== 'all') {
+        url += `&buildingId=${selectedBuildingId}`;
+      } else if (selectedFloorId !== 'all') {
+        url += `&floorId=${selectedFloorId}`;
+      }
+
+      const response = await fetch(url);
       if (!response.ok) throw new Error('Failed to load equipment');
       return response.json();
     },
@@ -155,6 +173,17 @@ export function SiteEquipmentMap({
   });
 
   const nodes = nodesData ?? [];
+
+  const { data: connections = [] } = useQuery<Connection[]>({
+    queryKey: ['site-connections', siteId],
+    queryFn: async () => {
+      const response = await fetch(`/api/synoptics/connections?siteId=${siteId}`);
+      if (!response.ok) throw new Error('Failed to load connections');
+      return response.json();
+    },
+    enabled: !!siteId,
+    staleTime: 30_000,
+  });
 
   // Transform raw nodes into equipment features
   const equipment = useMemo<EquipmentFeature[]>(() => {
@@ -263,6 +292,10 @@ export function SiteEquipmentMap({
     return buildingMap[selectedBuildingId]?.floors ?? [];
   }, [selectedBuildingId, buildingMap]);
 
+  const selectedEquipmentId = selectedEquipment?.id ?? null;
+
+  const downstreamNodeIds = useDownstreamNodes(connections, selectedEquipmentId);
+
   // Apply filters
   const filteredEquipment = useMemo(() => {
     return equipment.filter((item) => {
@@ -275,9 +308,12 @@ export function SiteEquipmentMap({
       // Floor filter
       if (selectedFloorId !== 'all' && item.floorId !== selectedFloorId) return false;
 
+      // Gas filter
+      if (selectedGasTypes.length > 0 && !selectedGasTypes.includes(item.gasType)) return false;
+
       return true;
     });
-  }, [equipment, selectedTypes, selectedBuildingId, selectedFloorId]);
+  }, [equipment, selectedTypes, selectedBuildingId, selectedFloorId, selectedGasTypes]);
 
   // Prepare GeoJSON for map
   const featureCollection = useMemo(
@@ -285,27 +321,39 @@ export function SiteEquipmentMap({
       type: 'FeatureCollection' as const,
       features: filteredEquipment
         .filter((item) => item.coordinates !== null)
-        .map((item) => ({
-          type: 'Feature' as const,
-          geometry: { type: 'Point' as const, coordinates: item.coordinates! },
-          properties: {
-            id: item.id,
-            elementId: item.elementId,
-            name: item.name,
-            nodeType: item.nodeType,
-            status: item.status,
-            gasType: item.gasType,
-            buildingName: item.buildingId ? buildingMap[item.buildingId]?.name ?? '' : '',
-            floorName:
-              item.floorId && item.buildingId
-                ? buildingMap[item.buildingId]?.floors?.find(
-                    (floor: FloorSummary) => floor.id === item.floorId
-                  )?.name ?? ''
-                : '',
-          },
-        })),
+        .map((item) => {
+          let highlightType: 'selected' | 'downstream' | 'default' = 'default';
+          if (selectedEquipmentId) {
+            if (item.id === selectedEquipmentId) {
+              highlightType = 'selected';
+            } else if (downstreamNodeIds.has(item.id)) {
+              highlightType = 'downstream';
+            }
+          }
+
+          return {
+            type: 'Feature' as const,
+            geometry: { type: 'Point' as const, coordinates: item.coordinates! },
+            properties: {
+              id: item.id,
+              elementId: item.elementId,
+              name: item.name,
+              nodeType: item.nodeType,
+              status: item.status,
+              gasType: item.gasType,
+              buildingName: item.buildingId ? buildingMap[item.buildingId]?.name ?? '' : '',
+              floorName:
+                item.floorId && item.buildingId
+                  ? buildingMap[item.buildingId]?.floors?.find(
+                      (floor: FloorSummary) => floor.id === item.floorId
+                    )?.name ?? ''
+                  : '',
+              highlightType,
+            },
+          };
+        }),
     }),
-    [filteredEquipment, buildingMap]
+    [filteredEquipment, buildingMap, selectedEquipmentId, downstreamNodeIds]
   );
 
   const mapCenter = useMemo((): [number, number] => {
@@ -324,6 +372,12 @@ export function SiteEquipmentMap({
     );
   };
 
+  const toggleGasType = (gasType: string) => {
+    setSelectedGasTypes((prev) =>
+      prev.includes(gasType) ? prev.filter((g) => g !== gasType) : [...prev, gasType]
+    );
+  };
+
   const handleBuildingChange = (id: string) => {
     setSelectedBuildingId(id);
     setSelectedFloorId('all');
@@ -333,10 +387,11 @@ export function SiteEquipmentMap({
     setSelectedTypes(['valve', 'source']);
     setSelectedBuildingId('all');
     setSelectedFloorId('all');
+    setSelectedGasTypes([]);
   };
 
   // Equipment interaction handlers
-  const handleEquipmentClick = (item: EquipmentFeature) => {
+  const handleEquipmentClick = (item: any) => {
     setSelectedEquipment(item);
     setShowEditDialog(true);
   };
@@ -390,6 +445,8 @@ export function SiteEquipmentMap({
         onBuildingChange={handleBuildingChange}
         selectedFloorId={selectedFloorId}
         onFloorChange={setSelectedFloorId}
+        selectedGasTypes={selectedGasTypes}
+        onGasTypeToggle={toggleGasType}
         buildings={buildings}
         floorsForSelectedBuilding={floorsForSelectedBuilding}
         filteredCount={filteredEquipment.length}
@@ -399,15 +456,27 @@ export function SiteEquipmentMap({
 
       {/* Content Area - Map View */}
       {viewMode === 'map' && (
-        <EquipmentMapView
-          isLoading={isLoading}
-          isError={isError}
-          featureCollection={featureCollection}
-          equipmentWithCoordsCount={equipmentWithCoords.length}
-          mapCenter={mapCenter}
-          onMapReady={setMapReady}
-          mapReady={mapReady}
-        />
+        <div className="flex w-full">
+          <div className="flex-1 min-w-0">
+            <EquipmentMapView
+              isLoading={isLoading}
+              isError={isError}
+              featureCollection={featureCollection}
+              equipmentWithCoordsCount={equipmentWithCoords.length}
+              mapCenter={mapCenter}
+              onMapReady={setMapReady}
+              mapReady={mapReady}
+              focusedEquipmentId={selectedEquipment?.id ?? null}
+              onFeatureClick={(id: string) => {
+                const found = equipment.find((e) => e.id === id);
+                if (found) {
+                  setSelectedEquipment(found);
+                  setShowEditDialog(false);
+                }
+              }}
+            />
+          </div>
+        </div>
       )}
 
       {/* Content Area - Grid View */}

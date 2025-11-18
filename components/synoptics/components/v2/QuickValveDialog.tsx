@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { GasType } from './hierarchy/gas-indicators';
+import { useI18n } from '@/app/i18n-provider';
 
 interface QuickValveDialogProps {
   open: boolean;
@@ -43,6 +44,7 @@ export function QuickValveDialog({
   const [selectedGas, setSelectedGas] = useState<GasType | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { t } = useI18n();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -113,13 +115,13 @@ export function QuickValveDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Add Isolation Valve</DialogTitle>
+          <DialogTitle>{t('synoptics.quickValve.title')}</DialogTitle>
         </DialogHeader>
         
         <form onSubmit={handleSubmit}>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="valve-name">Valve Name</Label>
+              <Label htmlFor="valve-name">{t('synoptics.quickValve.nameLabel')}</Label>
               <Input
                 id="valve-name"
                 value={name}
@@ -164,16 +166,16 @@ export function QuickValveDialog({
               onClick={() => onOpenChange(false)}
               disabled={isSubmitting}
             >
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button type="submit" disabled={isSubmitting || !name.trim() || !selectedGas}>
               {isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creating...
+                  {t('synoptics.quickValve.submit')}
                 </>
               ) : (
-                'Create Valve'
+                t('synoptics.quickValve.submit')
               )}
             </Button>
           </DialogFooter>

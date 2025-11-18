@@ -24,6 +24,7 @@ import { AddressSearch } from '@/components/mapbox/address-search';
 import { parseApiError, validateName, validateLatitude, validateLongitude } from '../shared/form-utils';
 import type { Site } from './use-sites-data';
 import { cn } from '@/lib/utils';
+import { useI18n } from '@/app/i18n-provider';
 
 interface SiteCardProps {
   site: Site;
@@ -41,6 +42,7 @@ export function SiteCard({ site, onUpdate, onDelete }: SiteCardProps) {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const { t } = useI18n();
 
   // Sync edit form data when dialog opens
   useEffect(() => {
@@ -137,7 +139,7 @@ export function SiteCard({ site, onUpdate, onDelete }: SiteCardProps) {
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={() => setIsEditDialogOpen(true)}>
                   <Pencil className="mr-2 h-4 w-4" />
-                  Edit
+                  {t('synoptics.siteCard.menu.edit')}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
@@ -145,7 +147,7 @@ export function SiteCard({ site, onUpdate, onDelete }: SiteCardProps) {
                   className="text-red-600 focus:text-red-600"
                 >
                   <Trash2 className="mr-2 h-4 w-4" />
-                  Delete Site
+                  {t('synoptics.siteCard.menu.delete')}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -154,18 +156,19 @@ export function SiteCard({ site, onUpdate, onDelete }: SiteCardProps) {
       </div>
 
       <div className="mt-4 text-xs text-gray-400">
-        Created {new Date(site.createdAt).toLocaleDateString()}
+        {t('synoptics.siteCard.footer.created')}{' '}
+        {new Date(site.createdAt).toLocaleDateString()}
       </div>
     </div>
 
     <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Edit Site</DialogTitle>
+          <DialogTitle>{t('synoptics.siteCard.editDialog.title')}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleEditSubmit} className="space-y-4">
           <div>
-            <Label htmlFor="edit-name">Site Name *</Label>
+            <Label htmlFor="edit-name">{t('synoptics.siteCard.editDialog.nameLabel')}</Label>
             <Input
               id="edit-name"
               type="text"
@@ -189,9 +192,9 @@ export function SiteCard({ site, onUpdate, onDelete }: SiteCardProps) {
           </div>
 
           <div>
-            <Label>Address</Label>
+            <Label>{t('synoptics.siteCard.editDialog.addressLabel')}</Label>
             <p className="text-xs text-gray-500 mt-1 mb-2">
-              Search for an address to auto-fill coordinates
+              {t('synoptics.siteCard.editDialog.addressHelp')}
             </p>
             <div className="mt-1">
               <AddressSearch
@@ -210,7 +213,9 @@ export function SiteCard({ site, onUpdate, onDelete }: SiteCardProps) {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="edit-latitude">Latitude (auto-filled)</Label>
+              <Label htmlFor="edit-latitude">
+                {t('synoptics.siteCard.editDialog.latitudeLabel')}
+              </Label>
               <Input
                 id="edit-latitude"
                 type="text"
@@ -226,7 +231,9 @@ export function SiteCard({ site, onUpdate, onDelete }: SiteCardProps) {
               )}
             </div>
             <div>
-              <Label htmlFor="edit-longitude">Longitude (auto-filled)</Label>
+              <Label htmlFor="edit-longitude">
+                {t('synoptics.siteCard.editDialog.longitudeLabel')}
+              </Label>
               <Input
                 id="edit-longitude"
                 type="text"
@@ -250,11 +257,13 @@ export function SiteCard({ site, onUpdate, onDelete }: SiteCardProps) {
               onClick={() => setIsEditDialogOpen(false)}
               disabled={isSubmitting}
             >
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isSubmitting ? 'Saving...' : 'Update Site'}
+              {isSubmitting
+                ? t('synoptics.siteCard.editDialog.saving')
+                : t('synoptics.siteCard.editDialog.save')}
             </Button>
           </div>
         </form>

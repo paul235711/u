@@ -1,17 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUser } from '@/lib/db/queries';
-import { getFloorById, updateFloor } from '@/lib/db/synoptics-queries';
+import { getZoneById, updateZone } from '@/lib/db/synoptics-queries';
 import { z } from 'zod';
 
-const updateFloorSchema = z.object({
-  buildingId: z.string().uuid(),
-  floorNumber: z.number().int(),
-  name: z.string().optional().nullable(),
+const updateZoneSchema = z.object({
+  floorId: z.string().uuid(),
+  name: z.string().min(1),
 });
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { floorId: string } }
+  { params }: { params: { zoneId: string } }
 ) {
   try {
     const user = await getUser();
@@ -20,27 +19,27 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { floorId } = params;
+    const { zoneId } = params;
 
-    if (!floorId) {
+    if (!zoneId) {
       return NextResponse.json(
-        { error: 'floorId is required' },
+        { error: 'zoneId is required' },
         { status: 400 }
       );
     }
 
-    const floor = await getFloorById(floorId);
+    const zone = await getZoneById(zoneId);
 
-    if (!floor) {
+    if (!zone) {
       return NextResponse.json(
-        { error: 'Floor not found' },
+        { error: 'Zone not found' },
         { status: 404 }
       );
     }
 
-    return NextResponse.json(floor);
+    return NextResponse.json(zone);
   } catch (error) {
-    console.error('Error fetching floor:', error);
+    console.error('Error fetching zone:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -50,7 +49,7 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { floorId: string } }
+  { params }: { params: { zoneId: string } }
 ) {
   try {
     const user = await getUser();
@@ -59,28 +58,28 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { floorId } = params;
+    const { zoneId } = params;
 
-    if (!floorId) {
+    if (!zoneId) {
       return NextResponse.json(
-        { error: 'floorId is required' },
+        { error: 'zoneId is required' },
         { status: 400 }
       );
     }
 
-    const existing = await getFloorById(floorId);
+    const existing = await getZoneById(zoneId);
 
     if (!existing) {
       return NextResponse.json(
-        { error: 'Floor not found' },
+        { error: 'Zone not found' },
         { status: 404 }
       );
     }
 
     const body = await request.json();
-    const validatedData = updateFloorSchema.parse(body);
+    const validatedData = updateZoneSchema.parse(body);
 
-    const updated = await updateFloor(floorId, validatedData);
+    const updated = await updateZone(zoneId, validatedData);
 
     return NextResponse.json(updated);
   } catch (error) {
@@ -91,7 +90,7 @@ export async function PUT(
       );
     }
 
-    console.error('Error updating floor:', error);
+    console.error('Error updating zone:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

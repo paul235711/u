@@ -2,12 +2,14 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
 import { parseApiError, validateName, validateFloorNumber } from '../shared/form-utils';
 import { useToast, ToastContainer } from '../shared/use-toast';
+import { useI18n } from '@/app/i18n-provider';
 
 interface FloorFormProps {
   buildingId: string;
@@ -21,6 +23,8 @@ interface FloorFormProps {
 
 export function FloorForm({ buildingId, siteId, initialData, floorId }: FloorFormProps) {
   const router = useRouter();
+  const { t } = useI18n();
+  const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -44,7 +48,7 @@ export function FloorForm({ buildingId, siteId, initialData, floorId }: FloorFor
     if (floorError) errors.floorNumber = floorError;
 
     if (formData.name) {
-      const nameError = validateName(formData.name, 'Floor name');
+      const nameError = validateName(formData.name, t('synoptics.floorForm.name.label'));
       if (nameError) errors.name = nameError;
     }
 
@@ -78,9 +82,14 @@ export function FloorForm({ buildingId, siteId, initialData, floorId }: FloorFor
         throw new Error(errorMessage);
       }
 
+      // Invalidate hierarchy cache so the site detail page refetches
+      queryClient.invalidateQueries({ queryKey: ['site-hierarchy', siteId] });
+
       // Show success message
       showToast(
-        floorId ? 'Floor updated successfully' : 'Floor created successfully',
+        floorId
+          ? t('synoptics.floorForm.toast.updateSuccess')
+          : t('synoptics.floorForm.toast.createSuccess'),
         'success'
       );
 
@@ -106,7 +115,7 @@ export function FloorForm({ buildingId, siteId, initialData, floorId }: FloorFor
       )}
 
       <div>
-        <Label htmlFor="floorNumber">Floor Number *</Label>
+        <Label htmlFor="floorNumber">{t('synoptics.floorForm.number.label')}</Label>
         <Input
           id="floorNumber"
           type="number"
@@ -120,13 +129,13 @@ export function FloorForm({ buildingId, siteId, initialData, floorId }: FloorFor
               setFieldErrors((prev) => ({ ...prev, floorNumber: '' }));
             }
           }}
-          placeholder="e.g., 1, 2, -1 (basement)"
+          placeholder={t('synoptics.floorForm.number.placeholder')}
           className="mt-1"
           aria-invalid={!!fieldErrors.floorNumber}
           aria-describedby="floorNumber-help floorNumber-error"
         />
         <p id="floorNumber-help" className="text-xs text-gray-500 mt-1">
-          Use negative numbers for basement levels (range: -10 to 200)
+          {t('synoptics.floorForm.number.help')}
         </p>
         {fieldErrors.floorNumber && (
           <p id="floorNumber-error" className="text-xs text-red-600 mt-1" role="alert">
@@ -136,7 +145,7 @@ export function FloorForm({ buildingId, siteId, initialData, floorId }: FloorFor
       </div>
 
       <div>
-        <Label htmlFor="name">Floor Name (Optional)</Label>
+        <Label htmlFor="name">{t('synoptics.floorForm.name.label')}</Label>
         <Input
           id="name"
           type="text"
@@ -147,7 +156,7 @@ export function FloorForm({ buildingId, siteId, initialData, floorId }: FloorFor
               setFieldErrors((prev) => ({ ...prev, name: '' }));
             }
           }}
-          placeholder="e.g., Cardiology, Emergency"
+          placeholder={t('synoptics.floorForm.name.placeholder')}
           className="mt-1"
           aria-invalid={!!fieldErrors.name}
           aria-describedby={fieldErrors.name ? 'name-error' : undefined}
@@ -166,11 +175,15 @@ export function FloorForm({ buildingId, siteId, initialData, floorId }: FloorFor
           onClick={() => router.back()}
           disabled={isSubmitting}
         >
-          Cancel
+          {t('common.cancel')}
         </Button>
         <Button type="submit" disabled={isSubmitting}>
           {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          {isSubmitting ? 'Saving...' : floorId ? 'Update Floor' : 'Create Floor'}
+          {isSubmitting
+            ? t('synoptics.floorForm.submit.saving')
+            : floorId
+              ? t('synoptics.floorForm.submit.update')
+              : t('synoptics.floorForm.submit.create')}
         </Button>
       </div>
     </form>

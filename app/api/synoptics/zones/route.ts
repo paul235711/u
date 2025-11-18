@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createZone, getZonesByFloorId } from '@/lib/db/synoptics-queries';
+import { createZone, getZonesByFloorId, deleteZone } from '@/lib/db/synoptics-queries';
+import { getUser } from '@/lib/db/queries';
 
 export async function GET(request: NextRequest) {
   try {
@@ -42,6 +43,36 @@ export async function POST(request: NextRequest) {
     console.error('Error creating zone:', error);
     return NextResponse.json(
       { error: 'Failed to create zone' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const user = await getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const zoneId = searchParams.get('zoneId');
+
+    if (!zoneId) {
+      return NextResponse.json(
+        { error: 'zoneId is required' },
+        { status: 400 }
+      );
+    }
+
+    await deleteZone(zoneId);
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting zone:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }

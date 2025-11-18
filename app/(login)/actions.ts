@@ -22,6 +22,11 @@ import { cookies } from 'next/headers';
 import { createCheckoutSession } from '@/lib/payments/stripe';
 import { getUser, getUserWithTeam, getUserWithTeamRole } from '@/lib/db/queries';
 import {
+  getOrganizationByTeamId,
+  createOrganization,
+  getSitesByOrganizationId,
+} from '@/lib/db/synoptics-queries';
+import {
   validatedAction,
   validatedActionWithUser
 } from '@/lib/auth/middleware';
@@ -112,6 +117,21 @@ export const signIn = validatedAction(signInSchema, async (data, formData) => {
     .where(and(eq(invitations.email, email), eq(invitations.status, 'pending')));
   if (pendingInvites.length > 0) {
     redirect('/onboarding');
+  }
+
+  if (foundTeam?.id) {
+    let organization = await getOrganizationByTeamId(foundTeam.id);
+    if (!organization) {
+      organization = await createOrganization({
+        teamId: foundTeam.id,
+        name: foundTeam.name || `${email}'s Team`,
+      });
+    }
+
+    const sites = await getSitesByOrganizationId(organization.id);
+    if (sites.length === 1) {
+      redirect(`/synoptics/sites/${sites[0].id}`);
+    }
   }
 
   redirect('/synoptics');

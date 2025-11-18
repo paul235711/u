@@ -20,6 +20,8 @@ interface EquipmentFiltersProps {
   onBuildingChange: (id: string) => void;
   selectedFloorId: string;
   onFloorChange: (id: string) => void;
+  selectedGasTypes: string[];
+  onGasTypeToggle: (gasType: string) => void;
   buildings: BuildingSummary[];
   floorsForSelectedBuilding: FloorSummary[];
   filteredCount: number;
@@ -40,12 +42,24 @@ export function EquipmentFilters({
   onBuildingChange,
   selectedFloorId,
   onFloorChange,
+  selectedGasTypes,
+  onGasTypeToggle,
   buildings,
   floorsForSelectedBuilding,
   filteredCount,
   totalCount,
   onReset,
 }: EquipmentFiltersProps) {
+  const gasOptions: { key: string; label: string }[] = [
+    { key: 'oxygen', label: 'Oxygen (O₂)' },
+    { key: 'medical_air', label: 'Medical Air' },
+    { key: 'vacuum', label: 'Vacuum' },
+    { key: 'nitrogen', label: 'Nitrogen (N₂)' },
+    { key: 'nitrous_oxide', label: 'Nitrous Oxide (N₂O)' },
+    { key: 'carbon_dioxide', label: 'Carbon Dioxide (CO₂)' },
+    { key: 'compressed_air', label: 'Compressed Air' },
+  ];
+
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-4">
       <div className="space-y-4">
@@ -61,6 +75,23 @@ export function EquipmentFilters({
                 onClick={() => onTypeToggle(type)}
               >
                 {humanise(type)}
+              </Button>
+            ))}
+          </div>
+        </div>
+
+        {/* Gas Filters */}
+        <div>
+          <label className="mb-2 block text-xs font-medium text-gray-500">Gas</label>
+          <div className="flex flex-wrap gap-2">
+            {gasOptions.map((gas) => (
+              <Button
+                key={gas.key}
+                variant={selectedGasTypes.includes(gas.key) ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => onGasTypeToggle(gas.key)}
+              >
+                {gas.label}
               </Button>
             ))}
           </div>

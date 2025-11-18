@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { AlertTriangle, Building2, Layers, Box, Network, Loader2 } from 'lucide-react';
 import type { CascadeDependencies } from './use-sites-data';
+import { useI18n } from '@/app/i18n-provider';
 
 interface CascadeDeleteDialogProps {
   open: boolean;
@@ -36,6 +37,7 @@ export function CascadeDeleteDialog({
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
   const [confirmText, setConfirmText] = useState('');
+  const { t } = useI18n();
 
   useEffect(() => {
     if (open && siteId) {
@@ -93,9 +95,9 @@ export function CascadeDeleteDialog({
               <AlertTriangle className="h-5 w-5 text-red-600" />
             </div>
             <div>
-              <DialogTitle>Delete Site</DialogTitle>
+              <DialogTitle>{t('synoptics.deleteDialog.title')}</DialogTitle>
               <DialogDescription className="mt-1">
-                This action cannot be undone
+                {t('synoptics.deleteDialog.subtitle')}
               </DialogDescription>
             </div>
           </div>
@@ -105,7 +107,9 @@ export function CascadeDeleteDialog({
           {loading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
-              <span className="ml-2 text-sm text-gray-500">Checking dependencies...</span>
+              <span className="ml-2 text-sm text-gray-500">
+                {t('synoptics.deleteDialog.loading')}
+              </span>
             </div>
           ) : (
             <>
@@ -115,38 +119,62 @@ export function CascadeDeleteDialog({
                     <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
                     <div className="flex-1">
                       <p className="text-sm font-medium text-amber-900">
-                        Warning: Cascade Deletion
+                        {t('synoptics.deleteDialog.warningTitle')}
                       </p>
                       <p className="text-sm text-amber-700 mt-1">
-                        Deleting this site will also permanently delete:
+                        {t('synoptics.deleteDialog.warningBody')}
                       </p>
                       <ul className="mt-3 space-y-2 text-sm text-amber-800">
                         {dependencies.buildings > 0 && (
                           <li className="flex items-center gap-2">
                             <Building2 className="h-4 w-4" />
                             <span className="font-medium">{dependencies.buildings}</span>
-                            <span>building{dependencies.buildings !== 1 ? 's' : ''}</span>
+                            <span>
+                              {t(
+                                dependencies.buildings === 1
+                                  ? 'synoptics.deleteDialog.building.singular'
+                                  : 'synoptics.deleteDialog.building.plural',
+                              )}
+                            </span>
                           </li>
                         )}
                         {dependencies.floors > 0 && (
                           <li className="flex items-center gap-2">
                             <Layers className="h-4 w-4" />
                             <span className="font-medium">{dependencies.floors}</span>
-                            <span>floor{dependencies.floors !== 1 ? 's' : ''}</span>
+                            <span>
+                              {t(
+                                dependencies.floors === 1
+                                  ? 'synoptics.deleteDialog.floor.singular'
+                                  : 'synoptics.deleteDialog.floor.plural',
+                              )}
+                            </span>
                           </li>
                         )}
                         {dependencies.layouts > 0 && (
                           <li className="flex items-center gap-2">
                             <Box className="h-4 w-4" />
                             <span className="font-medium">{dependencies.layouts}</span>
-                            <span>layout{dependencies.layouts !== 1 ? 's' : ''}</span>
+                            <span>
+                              {t(
+                                dependencies.layouts === 1
+                                  ? 'synoptics.deleteDialog.layout.singular'
+                                  : 'synoptics.deleteDialog.layout.plural',
+                              )}
+                            </span>
                           </li>
                         )}
                         {dependencies.nodes > 0 && (
                           <li className="flex items-center gap-2">
                             <Network className="h-4 w-4" />
                             <span className="font-medium">{dependencies.nodes}</span>
-                            <span>equipment node{dependencies.nodes !== 1 ? 's' : ''}</span>
+                            <span>
+                              {t(
+                                dependencies.nodes === 1
+                                  ? 'synoptics.deleteDialog.node.singular'
+                                  : 'synoptics.deleteDialog.node.plural',
+                              )}
+                            </span>
                           </li>
                         )}
                       </ul>
@@ -157,12 +185,20 @@ export function CascadeDeleteDialog({
 
               <div>
                 <p className="text-sm text-gray-700 mb-3">
-                  You are about to delete <span className="font-semibold">{siteName}</span>.
-                  {hasDependencies && ' All associated data will be permanently removed.'}
+                  {t('synoptics.deleteDialog.confirmPrefix')}{' '}
+                  <span className="font-semibold">{siteName}</span>.
+                  {hasDependencies && (
+                    <>
+                      {' '}
+                      {t('synoptics.deleteDialog.confirmSuffix')}
+                    </>
+                  )}
                 </p>
                 
                 <Label htmlFor="confirm-name" className="text-sm font-medium">
-                  Type <span className="font-mono font-semibold">{siteName}</span> to confirm:
+                  {t('synoptics.deleteDialog.inputLabel.prefix')}{' '}
+                  <span className="font-mono font-semibold">{siteName}</span>{' '}
+                  {t('synoptics.deleteDialog.inputLabel.suffix')}
                 </Label>
                 <Input
                   id="confirm-name"
@@ -184,7 +220,7 @@ export function CascadeDeleteDialog({
             onClick={() => onOpenChange(false)}
             disabled={deleting}
           >
-            Cancel
+            {t('common.cancel')}
           </Button>
           <Button
             variant="destructive"
@@ -192,7 +228,9 @@ export function CascadeDeleteDialog({
             disabled={!isConfirmValid || deleting || loading}
           >
             {deleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {deleting ? 'Deleting...' : 'Delete Site'}
+            {deleting
+              ? t('synoptics.deleteDialog.deleting')
+              : t('synoptics.deleteDialog.confirmButton')}
           </Button>
         </DialogFooter>
       </DialogContent>
