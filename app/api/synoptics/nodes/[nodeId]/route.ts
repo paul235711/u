@@ -81,17 +81,23 @@ export async function PUT(
 
     const body = await request.json();
     const validatedData = updateNodeSchema.parse(body);
-    
+
     // Convert latitude/longitude to strings for database storage
-    const updateData = {
+    const updateData: any = {
       ...validatedData,
-      latitude: validatedData.latitude !== undefined ? validatedData.latitude.toString() : undefined,
-      longitude: validatedData.longitude !== undefined ? validatedData.longitude.toString() : undefined,
+      latitude:
+        validatedData.latitude !== undefined
+          ? validatedData.latitude.toString()
+          : undefined,
+      longitude:
+        validatedData.longitude !== undefined
+          ? validatedData.longitude.toString()
+          : undefined,
     };
 
-    const node = await updateNode(nodeId, updateData);
+    await updateNode(nodeId, updateData);
 
-    return NextResponse.json(node);
+    return NextResponse.json({ success: true });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -102,7 +108,13 @@ export async function PUT(
 
     console.error('Error updating node:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      {
+        error: 'Internal server error',
+        details:
+          error instanceof Error
+            ? { message: error.message, name: error.name }
+            : String(error),
+      },
       { status: 500 }
     );
   }

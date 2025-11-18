@@ -86,8 +86,8 @@ export const signIn = validatedAction(signInSchema, async (data, formData) => {
     };
   }
 
-  // Update lastActiveTeamId if user has a team
-  if (foundTeam?.id) {
+  // Initialize lastActiveTeamId if not already set and user has a team
+  if (!foundUser.lastActiveTeamId && foundTeam?.id) {
     await db
       .update(users)
       .set({ lastActiveTeamId: foundTeam.id })
@@ -491,19 +491,27 @@ export const removeTeamMember = validatedActionWithUser(
   removeTeamMemberSchema,
   async (data, _, user) => {
     const { memberId } = data;
-    const userWithTeam = await getUserWithTeam(user.id);
-
-    if (!userWithTeam?.teamId) {
+    if (!user.lastActiveTeamId) {
       return { error: 'User is not part of a team' };
+    }
+    const teamId = user.lastActiveTeamId;
+
+    // Ensure the acting user is a member of this team
+    const currentMembership = await db
+      .select()
+      .from(teamMembers)
+      .where(and(eq(teamMembers.userId, user.id), eq(teamMembers.teamId, teamId)))
+      .limit(1);
+
+    if (currentMembership.length === 0) {
+      return { error: 'User is not part of this team' };
     }
 
     // Ensure member belongs to same team and guard against removing last owner
     const targetMember = await db
       .select()
       .from(teamMembers)
-      .where(
-        and(eq(teamMembers.id, memberId), eq(teamMembers.teamId, userWithTeam.teamId))
-      )
+      .where(and(eq(teamMembers.id, memberId), eq(teamMembers.teamId, teamId)))
       .limit(1);
 
     if (targetMember.length === 0) {
@@ -516,9 +524,7 @@ export const removeTeamMember = validatedActionWithUser(
       const owners = await db
         .select()
         .from(teamMembers)
-        .where(
-          and(eq(teamMembers.teamId, userWithTeam.teamId), eq(teamMembers.role, 'owner'))
-        );
+        .where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.role, 'owner')));
       if (owners.length <= 1) {
         return { error: 'Cannot remove the last owner' };
       }
@@ -527,14 +533,11 @@ export const removeTeamMember = validatedActionWithUser(
     await db
       .delete(teamMembers)
       .where(
-        and(
-          eq(teamMembers.id, memberId),
-          eq(teamMembers.teamId, userWithTeam.teamId)
-        )
+        and(eq(teamMembers.id, memberId), eq(teamMembers.teamId, teamId))
       );
 
     await logActivity(
-      userWithTeam.teamId,
+      teamId,
       user.id,
       ActivityType.REMOVE_TEAM_MEMBER
     );
@@ -552,15 +555,11 @@ export const inviteTeamMember = validatedActionWithUser(
   inviteTeamMemberSchema,
   async (data, _, user) => {
     const { email, role } = data;
-    const userWithTeam = await getUserWithTeam(user.id);
-
-    if (!userWithTeam?.teamId) {
+    // Use the user's active team (lastActiveTeamId) as the context for invitations
+    if (!user.lastActiveTeamId) {
       return { error: 'User is not part of a team' };
     }
-
-    if (userWithTeam.role !== 'owner') {
-      return { error: 'Forbidden' };
-    }
+    const teamId = user.lastActiveTeamId;
 
     // Use transaction for atomicity
     const result = await db.transaction(async (tx) => {
@@ -568,7 +567,7 @@ export const inviteTeamMember = validatedActionWithUser(
       const currentMembership = await tx
         .select()
         .from(teamMembers)
-        .where(and(eq(teamMembers.userId, user.id), eq(teamMembers.teamId, userWithTeam.teamId)))
+        .where(and(eq(teamMembers.userId, user.id), eq(teamMembers.teamId, teamId)))
         .limit(1);
 
       if (currentMembership.length === 0 || currentMembership[0].role !== 'owner') {
@@ -580,7 +579,7 @@ export const inviteTeamMember = validatedActionWithUser(
         .select()
         .from(teamMembers)
         .innerJoin(users, eq(teamMembers.userId, users.id))
-        .where(and(eq(teamMembers.teamId, userWithTeam.teamId), eq(users.email, email)))
+        .where(and(eq(teamMembers.teamId, teamId), eq(users.email, email)))
         .limit(1);
 
       if (existingMember.length > 0) {
@@ -594,7 +593,7 @@ export const inviteTeamMember = validatedActionWithUser(
         .where(
           and(
             eq(invitations.email, email),
-            eq(invitations.teamId, userWithTeam.teamId),
+            eq(invitations.teamId, teamId),
             eq(invitations.status, 'pending')
           )
         )
@@ -606,7 +605,7 @@ export const inviteTeamMember = validatedActionWithUser(
 
       // Create a new invitation
       await tx.insert(invitations).values({
-        teamId: userWithTeam.teamId,
+        teamId,
         email,
         role,
         invitedBy: user.id,
@@ -614,7 +613,7 @@ export const inviteTeamMember = validatedActionWithUser(
       });
 
       await logActivity(
-        userWithTeam.teamId,
+        teamId,
         user.id,
         ActivityType.INVITE_TEAM_MEMBER
       );
@@ -637,21 +636,29 @@ export const updateTeamName = validatedActionWithUser(
   updateTeamNameSchema,
   async (data, _, user) => {
     const { name } = data;
-
-    const userWithTeam = await getUserWithTeam(user.id);
-
-    if (!userWithTeam?.teamId) {
+    if (!user.lastActiveTeamId) {
       return { error: 'User is not part of a team' };
     }
+    const teamId = user.lastActiveTeamId;
 
-    if (userWithTeam.role !== 'owner') {
+    const currentMembership = await db
+      .select()
+      .from(teamMembers)
+      .where(and(eq(teamMembers.userId, user.id), eq(teamMembers.teamId, teamId)))
+      .limit(1);
+
+    if (currentMembership.length === 0) {
+      return { error: 'User is not part of this team' };
+    }
+
+    if (currentMembership[0].role !== 'owner') {
       return { error: 'Forbidden' };
     }
 
     await db
       .update(teams)
       .set({ name, updatedAt: new Date() })
-      .where(eq(teams.id, userWithTeam.teamId));
+      .where(eq(teams.id, teamId));
 
     return { success: 'Team name updated successfully' };
   }
@@ -666,26 +673,32 @@ export const updateTeamMemberRole = validatedActionWithUser(
   updateTeamMemberRoleSchema,
   async (data, _, user) => {
     const { memberId, role } = data;
-
-    const userWithTeam = await getUserWithTeam(user.id);
-    if (!userWithTeam?.teamId) {
+    // Use the user's active team as the context for role updates
+    if (!user.lastActiveTeamId) {
       return { error: 'User is not part of a team' };
     }
+    const teamId = user.lastActiveTeamId;
 
-    if (userWithTeam.role !== 'owner') {
-      return { error: 'Forbidden' };
-    }
-
+    // Ensure the target member belongs to this team
     const targetMember = await db
       .select()
       .from(teamMembers)
-      .where(
-        and(eq(teamMembers.id, memberId), eq(teamMembers.teamId, userWithTeam.teamId))
-      )
+      .where(and(eq(teamMembers.id, memberId), eq(teamMembers.teamId, teamId)))
       .limit(1);
 
     if (targetMember.length === 0) {
       return { error: 'Member not found' };
+    }
+
+    // Ensure the acting user is still an owner of this team
+    const currentMembership = await db
+      .select()
+      .from(teamMembers)
+      .where(and(eq(teamMembers.userId, user.id), eq(teamMembers.teamId, teamId)))
+      .limit(1);
+
+    if (currentMembership.length === 0 || currentMembership[0].role !== 'owner') {
+      return { error: 'Forbidden' };
     }
 
     // Prevent demoting the last owner
@@ -693,9 +706,7 @@ export const updateTeamMemberRole = validatedActionWithUser(
       const owners = await db
         .select()
         .from(teamMembers)
-        .where(
-          and(eq(teamMembers.teamId, userWithTeam.teamId), eq(teamMembers.role, 'owner'))
-        );
+        .where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.role, 'owner')));
       if (owners.length <= 1) {
         return { error: 'Cannot change role of the last owner' };
       }
@@ -718,13 +729,22 @@ export const cancelInvitation = validatedActionWithUser(
   cancelInvitationSchema,
   async (data, _, user) => {
     const { invitationId } = data;
-
-    const userWithTeam = await getUserWithTeam(user.id);
-    if (!userWithTeam?.teamId) {
+    if (!user.lastActiveTeamId) {
       return { error: 'User is not part of a team' };
     }
+    const teamId = user.lastActiveTeamId;
 
-    if (userWithTeam.role !== 'owner') {
+    const currentMembership = await db
+      .select()
+      .from(teamMembers)
+      .where(and(eq(teamMembers.userId, user.id), eq(teamMembers.teamId, teamId)))
+      .limit(1);
+
+    if (currentMembership.length === 0) {
+      return { error: 'User is not part of this team' };
+    }
+
+    if (currentMembership[0].role !== 'owner') {
       return { error: 'Forbidden' };
     }
 
@@ -734,7 +754,7 @@ export const cancelInvitation = validatedActionWithUser(
         .select()
         .from(invitations)
         .where(
-          and(eq(invitations.id, invitationId), eq(invitations.teamId, userWithTeam.teamId))
+          and(eq(invitations.id, invitationId), eq(invitations.teamId, teamId))
         )
         .limit(1);
 
@@ -751,7 +771,7 @@ export const cancelInvitation = validatedActionWithUser(
         .set({ status: 'cancelled' })
         .where(eq(invitations.id, invitationId));
 
-      await logActivity(userWithTeam.teamId, user.id, ActivityType.CANCEL_INVITATION);
+      await logActivity(teamId, user.id, ActivityType.CANCEL_INVITATION);
 
       return { success: 'Invitation cancelled' };
     });

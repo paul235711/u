@@ -42,6 +42,15 @@ export async function getOrganizationByTeamId(teamId: number) {
   return result[0];
 }
 
+export async function getOrganizationById(organizationId: string) {
+  const result = await db
+    .select()
+    .from(organizations)
+    .where(eq(organizations.id, organizationId))
+    .limit(1);
+  return result[0];
+}
+
 export async function createOrganization(data: NewOrganization) {
   const result = await db.insert(organizations).values(data).returning();
   return result[0];

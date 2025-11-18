@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUser } from '@/lib/db/queries';
-import { updateSite, deleteSite, getSiteById } from '@/lib/db/synoptics-queries';
+import { updateSite, deleteSite, getSiteById, getOrganizationById } from '@/lib/db/synoptics-queries';
+import { syncTeamSubscriptionQuantity } from '@/lib/payments/stripe';
 import { z } from 'zod';
 
 const siteUpdateSchema = z.object({
@@ -84,7 +85,18 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const site = await getSiteById(siteId);
+    if (!site) {
+      return NextResponse.json({ error: 'Site not found' }, { status: 404 });
+    }
+
+    const organization = await getOrganizationById(site.organizationId);
+
     await deleteSite(siteId);
+
+    if (organization?.teamId) {
+      await syncTeamSubscriptionQuantity(organization.teamId);
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

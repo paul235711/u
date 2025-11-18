@@ -99,7 +99,13 @@ export function useSelectedEquipment(nodeId: string | null, allNodes: EquipmentN
 
       try {
         const elementDetails = await fetchJson<Record<string, any>>(detailsEndpoint);
-        return { ...node, ...elementDetails };
+        return {
+          ...node,
+          ...elementDetails,
+          // Ensure we keep the node identity consistent for updates
+          id: node.id,
+          elementId: node.elementId,
+        };
       } catch (error) {
         console.error(`Failed to fetch selected equipment details for ${nodeId}:`, error);
         return node;

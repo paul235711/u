@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUser } from '@/lib/db/queries';
-import { createSite, getSitesByOrganizationId } from '@/lib/db/synoptics-queries';
+import { createSite, getSitesByOrganizationId, getOrganizationById } from '@/lib/db/synoptics-queries';
+import { syncTeamSubscriptionQuantity } from '@/lib/payments/stripe';
 import { z } from 'zod';
 
 const siteSchema = z.object({
@@ -53,6 +54,11 @@ export async function POST(request: NextRequest) {
     const validatedData = siteSchema.parse(body);
 
     const site = await createSite(validatedData);
+
+    const organization = await getOrganizationById(validatedData.organizationId);
+    if (organization?.teamId) {
+      await syncTeamSubscriptionQuantity(organization.teamId);
+    }
 
     return NextResponse.json(site, { status: 201 });
   } catch (error) {

@@ -123,8 +123,9 @@ export function EquipmentListView({
                       <div className="flex flex-wrap items-center gap-1">
                         {positions.map((pos: any) => {
                           const layout = layouts.find((l: any) => l.id === pos.layoutId);
+                          const key = `${pos.nodeId}-${pos.layoutId}`;
                           return (
-                            <Badge key={pos.id} variant="secondary" className="text-xs">
+                            <Badge key={key} variant="secondary" className="text-xs">
                               {layout?.name || 'Unknown'}
                             </Badge>
                           );

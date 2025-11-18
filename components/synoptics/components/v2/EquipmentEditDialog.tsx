@@ -1,7 +1,15 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { useQuery } from '@tanstack/react-query';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,6 +17,13 @@ import { Loader2, Upload } from 'lucide-react';
 import { MapPicker } from '@/components/mapbox/map-picker';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { MediaDisplay } from './MediaDisplay';
 
 interface EquipmentEditDialogProps {
@@ -18,6 +33,7 @@ interface EquipmentEditDialogProps {
   onSuccess: () => void;
   siteLatitude?: number;
   siteLongitude?: number;
+  siteId?: string;
 }
 
 function extractCoordinate(value: unknown): string {
@@ -39,6 +55,7 @@ export function EquipmentEditDialog({
   onSuccess,
   siteLatitude,
   siteLongitude,
+  siteId,
 }: EquipmentEditDialogProps) {
   const [name, setName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -48,12 +65,44 @@ export function EquipmentEditDialog({
   const [longitude, setLongitude] = useState('');
   const [locationExpanded, setLocationExpanded] = useState(false);
   const initialCoordsRef = useRef({ lat: '', lng: '' });
+  const [buildingId, setBuildingId] = useState<string | null>(null);
+  const [floorId, setFloorId] = useState<string | null>(null);
+  const [zoneId, setZoneId] = useState<string | null>(null);
+  const initialHierarchyRef = useRef({
+    buildingId: null as string | null,
+    floorId: null as string | null,
+    zoneId: null as string | null,
+  });
+  const effectiveSiteId = siteId ?? node?.siteId;
 
   const nodeTypeLabel = node?.nodeType
     ? node.nodeType.charAt(0).toUpperCase() + node.nodeType.slice(1)
     : 'Equipment';
   const isLocationDirty =
     latitude !== initialCoordsRef.current.lat || longitude !== initialCoordsRef.current.lng;
+  const isHierarchyDirty =
+    buildingId !== initialHierarchyRef.current.buildingId ||
+    floorId !== initialHierarchyRef.current.floorId ||
+    zoneId !== initialHierarchyRef.current.zoneId;
+  const shouldUpdateNode = isLocationDirty || isHierarchyDirty;
+
+  const { data: hierarchyData, isLoading: isHierarchyLoading } = useQuery({
+    queryKey: ['site-hierarchy', effectiveSiteId],
+    queryFn: async () => {
+      if (!effectiveSiteId) return null;
+      const response = await fetch(`/api/synoptics/sites/${effectiveSiteId}/hierarchy`);
+      if (!response.ok) return null;
+      return response.json();
+    },
+    enabled: !!effectiveSiteId && open,
+    staleTime: 30000,
+  });
+
+  const buildings = (hierarchyData as any)?.buildings ?? [];
+  const selectedBuilding = buildings.find((b: any) => b.id === buildingId);
+  const floors = selectedBuilding?.floors ?? [];
+  const selectedFloor = floors.find((f: any) => f.id === floorId);
+  const zones = selectedFloor?.zones ?? [];
 
   useEffect(() => {
     if (node?.name) {
@@ -67,9 +116,44 @@ export function EquipmentEditDialog({
     setLatitude(latValue);
     setLongitude(lngValue);
     initialCoordsRef.current = { lat: latValue, lng: lngValue };
+    const nextBuildingId = node?.buildingId ?? null;
+    const nextFloorId = node?.floorId ?? null;
+    const nextZoneId = node?.zoneId ?? null;
+    setBuildingId(nextBuildingId);
+    setFloorId(nextFloorId);
+    setZoneId(nextZoneId);
+    initialHierarchyRef.current = {
+      buildingId: nextBuildingId,
+      floorId: nextFloorId,
+      zoneId: nextZoneId,
+    };
     setSelectedFiles(null);
     setLocationExpanded(false);
   }, [node]);
+
+  useEffect(() => {
+    if (!hierarchyData || !node?.zoneId) return;
+    if (initialHierarchyRef.current.buildingId || initialHierarchyRef.current.floorId) return;
+    if (buildingId || floorId) return;
+
+    let inferredBuildingId: string | null = null;
+    let inferredFloorId: string | null = null;
+
+    (hierarchyData as any).buildings?.forEach((b: any) => {
+      b.floors?.forEach((f: any) => {
+        const hasZone = f.zones?.some((z: any) => z.id === node.zoneId);
+        if (hasZone) {
+          inferredBuildingId = b.id;
+          inferredFloorId = f.id;
+        }
+      });
+    });
+
+    if (inferredBuildingId && inferredFloorId) {
+      setBuildingId(inferredBuildingId);
+      setFloorId(inferredFloorId);
+    }
+  }, [hierarchyData, node?.zoneId, buildingId, floorId]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSelectedFiles(e.target.files);
@@ -113,21 +197,57 @@ export function EquipmentEditDialog({
         throw new Error('Failed to update equipment');
       }
 
-      // Then, update node coordinates if they changed
-      if (isLocationDirty) {
+      // Then, update node coordinates / hierarchy if they changed
+      if (shouldUpdateNode) {
         const nodeEndpoint = `/api/synoptics/nodes/${node.id}`;
         const nodeUpdateData: any = {};
-        if (latitude) nodeUpdateData.latitude = parseFloat(latitude);
-        if (longitude) nodeUpdateData.longitude = parseFloat(longitude);
 
-        const nodeResponse = await fetch(nodeEndpoint, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(nodeUpdateData),
-        });
+        if (latitude) {
+          const latNum = parseFloat(latitude);
+          if (Number.isFinite(latNum)) {
+            nodeUpdateData.latitude = latNum;
+          }
+        }
 
-        if (!nodeResponse.ok) {
-          throw new Error('Failed to update node coordinates');
+        if (longitude) {
+          const lngNum = parseFloat(longitude);
+          if (Number.isFinite(lngNum)) {
+            nodeUpdateData.longitude = lngNum;
+          }
+        }
+
+        if (buildingId !== initialHierarchyRef.current.buildingId) {
+          nodeUpdateData.buildingId = buildingId;
+        }
+        if (floorId !== initialHierarchyRef.current.floorId) {
+          nodeUpdateData.floorId = floorId;
+        }
+        if (zoneId !== initialHierarchyRef.current.zoneId) {
+          nodeUpdateData.zoneId = zoneId;
+        }
+
+        // If nothing ended up changing (e.g. rounding back to original), skip the request.
+        if (Object.keys(nodeUpdateData).length > 0) {
+          const nodeResponse = await fetch(nodeEndpoint, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(nodeUpdateData),
+          });
+
+          if (!nodeResponse.ok) {
+            let details: any = null;
+            try {
+              details = await nodeResponse.json();
+            } catch (err) {
+              // ignore JSON parse errors here
+            }
+            console.error('Failed to update node', {
+              status: nodeResponse.status,
+              details,
+              payload: nodeUpdateData,
+            });
+            throw new Error(details?.error || 'Failed to update node coordinates');
+          }
         }
       }
 
@@ -204,7 +324,113 @@ export function EquipmentEditDialog({
             <div className="space-y-3 rounded-md border border-gray-200 p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <Label>Location (optional)</Label>
+                  <Label>Physical location</Label>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Set the building, floor, and zone for this equipment. This is used for hierarchy and
+                    filters.
+                  </p>
+                </div>
+                {isHierarchyLoading && (
+                  <span className="text-xs text-gray-400">Loading location options...</span>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <div>
+                  <Label htmlFor="building">Building</Label>
+                  <Select
+                    value={buildingId ?? 'none'}
+                    onValueChange={(value) => {
+                      const next = value === 'none' ? null : value;
+                      setBuildingId(next);
+                      setFloorId(null);
+                      setZoneId(null);
+                    }}
+                    disabled={isSubmitting || isHierarchyLoading || !hierarchyData}
+                  >
+                    <SelectTrigger id="building" className="mt-1 w-full">
+                      <SelectValue placeholder="Not set" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No building</SelectItem>
+                      {buildings.map((building: any) => (
+                        <SelectItem key={building.id} value={building.id}>
+                          {building.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="floor">Floor</Label>
+                  <Select
+                    value={floorId ?? 'none'}
+                    onValueChange={(value) => {
+                      const next = value === 'none' ? null : value;
+                      setFloorId(next);
+                      setZoneId(null);
+                    }}
+                    disabled={
+                      isSubmitting ||
+                      isHierarchyLoading ||
+                      !hierarchyData ||
+                      !buildingId
+                    }
+                  >
+                    <SelectTrigger id="floor" className="mt-1 w-full">
+                      <SelectValue
+                        placeholder={buildingId ? 'Select floor' : 'Select building first'}
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No floor</SelectItem>
+                      {floors.map((floor: any) => (
+                        <SelectItem key={floor.id} value={floor.id}>
+                          {floor.name || `Floor ${floor.floorNumber}`}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="zone">Zone</Label>
+                  <Select
+                    value={zoneId ?? 'none'}
+                    onValueChange={(value) => {
+                      const next = value === 'none' ? null : value;
+                      setZoneId(next);
+                    }}
+                    disabled={
+                      isSubmitting ||
+                      isHierarchyLoading ||
+                      !hierarchyData ||
+                      !floorId
+                    }
+                  >
+                    <SelectTrigger id="zone" className="mt-1 w-full">
+                      <SelectValue
+                        placeholder={floorId ? 'Select zone' : 'Select floor first'}
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No zone</SelectItem>
+                      {zones.map((zone: any) => (
+                        <SelectItem key={zone.id} value={zone.id}>
+                          {zone.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-3 rounded-md border border-gray-200 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <Label>Map location (optional)</Label>
                   <p className="mt-1 text-xs text-gray-500">
                     {locationExpanded
                       ? 'Tap anywhere on the map to update the equipment position. Coordinates will be saved and displayed on site maps.'

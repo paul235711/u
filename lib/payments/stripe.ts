@@ -1,11 +1,14 @@
 import Stripe from 'stripe';
 import { redirect } from 'next/navigation';
-import { Team } from '@/lib/db/schema';
+import { Team, teams } from '@/lib/db/schema';
+import { db } from '@/lib/db/drizzle';
 import {
   getTeamByStripeCustomerId,
   getUser,
   updateTeamSubscription
 } from '@/lib/db/queries';
+import { getOrganizationByTeamId, getSitesByOrganizationId } from '@/lib/db/synoptics-queries';
+import { eq } from 'drizzle-orm';
 
 export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-04-30.basil'
@@ -24,12 +27,16 @@ export async function createCheckoutSession({
     redirect(`/sign-up?redirect=checkout&priceId=${priceId}`);
   }
 
+  const organization = await getOrganizationByTeamId(team.id);
+  const sites = organization ? await getSitesByOrganizationId(organization.id) : [];
+  const quantity = Math.max(sites.length, 1);
+
   const session = await stripe.checkout.sessions.create({
     payment_method_types: ['card'],
     line_items: [
       {
         price: priceId,
-        quantity: 1
+        quantity
       }
     ],
     mode: 'subscription',
@@ -44,6 +51,41 @@ export async function createCheckoutSession({
   });
 
   redirect(session.url!);
+}
+
+export async function syncTeamSubscriptionQuantity(teamId: number) {
+  const team = await db
+    .select()
+    .from(teams)
+    .where(eq(teams.id, teamId))
+    .limit(1);
+
+  const currentTeam = team[0];
+
+  if (!currentTeam || !currentTeam.stripeSubscriptionId) {
+    return;
+  }
+
+  const organization = await getOrganizationByTeamId(teamId);
+  const sites = organization ? await getSitesByOrganizationId(organization.id) : [];
+  const quantity = Math.max(sites.length, 1);
+
+  const subscription = await stripe.subscriptions.retrieve(currentTeam.stripeSubscriptionId);
+  const item = subscription.items.data[0];
+
+  if (!item) {
+    return;
+  }
+
+  await stripe.subscriptions.update(subscription.id, {
+    items: [
+      {
+        id: item.id,
+        quantity
+      }
+    ],
+    proration_behavior: 'create_prorations'
+  });
 }
 
 export async function createCustomerPortalSession(team: Team) {

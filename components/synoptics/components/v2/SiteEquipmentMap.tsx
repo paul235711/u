@@ -460,6 +460,7 @@ export function SiteEquipmentMap({
           onOpenChange={setShowEditDialog}
           node={selectedEquipment}
           onSuccess={handleEditSuccess}
+          siteId={siteId}
           siteLatitude={siteLatitude}
           siteLongitude={siteLongitude}
         />

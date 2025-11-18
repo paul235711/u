@@ -342,7 +342,9 @@ export function EquipmentBankEnhanced({
           setShowEditDialog(false);
           queryClient.invalidateQueries({ queryKey: ['site-equipment', siteId] });
           queryClient.invalidateQueries({ queryKey: ['equipment-details'] });
+          queryClient.invalidateQueries({ queryKey: ['selected-equipment'] });
         }}
+        siteId={siteId}
         siteLatitude={parseFloat((selectedElement as any)?.siteLatitude ?? '') || undefined}
         siteLongitude={parseFloat((selectedElement as any)?.siteLongitude ?? '') || undefined}
       />

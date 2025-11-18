@@ -12,38 +12,39 @@ export default async function PricingPage() {
     getStripeProducts(),
   ]);
 
-  const basePlan = products.find((product) => product.name === 'Plan mensuel');
-  const plusPlan = products.find((product) => product.name === 'Plan annuel');
+  const vmapProduct =
+    products.find((product) => product.name === 'vmap') || products[0];
 
-  const basePrice = prices.find((price) => price.productId === basePlan?.id);
-  const plusPrice = prices.find((price) => price.productId === plusPlan?.id);
+  const vmapPrices = prices.filter((price) => price.productId === vmapProduct?.id);
+  const monthlyPrice = vmapPrices.find((price) => price.interval === 'month');
+  const yearlyPrice = vmapPrices.find((price) => price.interval === 'year');
 
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <div className="grid md:grid-cols-2 gap-8 max-w-xl mx-auto">
         <PricingCard
-          name={basePlan?.name || 'Base'}
-          price={basePrice?.unitAmount || 800}
-          interval={basePrice?.interval || 'month'}
-          trialDays={basePrice?.trialPeriodDays || 7}
+          name={vmapProduct ? `${vmapProduct.name} - Monthly` : 'Monthly'}
+          price={monthlyPrice?.unitAmount || 2900}
+          interval={monthlyPrice?.interval || 'month'}
+          trialDays={monthlyPrice?.trialPeriodDays || 14}
           features={[
             'Unlimited Usage',
             'Unlimited Workspace Members',
             'Email Support',
           ]}
-          priceId={basePrice?.id}
+          priceId={monthlyPrice?.id}
         />
         <PricingCard
-          name={plusPlan?.name || 'Plus'}
-          price={plusPrice?.unitAmount || 1200}
-          interval={plusPrice?.interval || 'month'}
-          trialDays={plusPrice?.trialPeriodDays || 7}
+          name={vmapProduct ? `${vmapProduct.name} - Yearly` : 'Yearly'}
+          price={yearlyPrice?.unitAmount || 29000}
+          interval={yearlyPrice?.interval || 'year'}
+          trialDays={yearlyPrice?.trialPeriodDays || 14}
           features={[
             'Everything in Base, and:',
             'Early Access to New Features',
             '24/7 Support + Slack Access',
           ]}
-          priceId={plusPrice?.id}
+          priceId={yearlyPrice?.id}
         />
       </div>
     </main>
@@ -72,9 +73,9 @@ function PricingCard({
         with {trialDays} day free trial
       </p>
       <p className="text-4xl font-medium text-gray-900 mb-6">
-        ${price / 100}{' '}
+        €{price / 100}{' '}
         <span className="text-xl font-normal text-gray-600">
-          per user / {interval}
+          per site / {interval}
         </span>
       </p>
       <ul className="space-y-4 mb-8">
