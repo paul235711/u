@@ -6,7 +6,7 @@ import { SWRConfig } from 'swr';
 import { Providers } from './providers';
 
 export const metadata: Metadata = {
-  title: 'Next.js SaaS Starter',
+  title: 'Vmap',
   description: 'Get started quickly with Next.js, Postgres, and Stripe.'
 };
 

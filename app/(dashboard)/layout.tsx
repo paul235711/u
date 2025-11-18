@@ -4,7 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { use, useState, Suspense } from 'react';
 import { Button } from '@/components/ui/button';
-import { Home, LogOut } from 'lucide-react';
+import { Home, LogOut, Building2 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -66,6 +66,12 @@ function UserMenu() {
             <span>Dashboard</span>
           </Link>
         </DropdownMenuItem>
+        <DropdownMenuItem className="cursor-pointer">
+          <Link href="/synoptics" className="flex w-full items-center">
+            <Building2 className="mr-2 h-4 w-4" />
+            <span>Sites</span>
+          </Link>
+        </DropdownMenuItem>
         <form action={handleSignOut} className="w-full">
           <button type="submit" className="flex w-full">
             <DropdownMenuItem className="w-full flex-1 cursor-pointer">
@@ -80,10 +86,31 @@ function UserMenu() {
 }
 
 function Header() {
+  const router = useRouter();
+
+  const handleLogoClick = async (e: any) => {
+    e.preventDefault();
+
+    try {
+      const response = await fetch('/api/synoptics/default-site');
+      if (response.ok) {
+        const data = await response.json();
+        if (data?.siteId) {
+          router.push(`/synoptics/sites/${data.siteId}`);
+          return;
+        }
+      }
+    } catch (error) {
+      // fall through to default navigation
+    }
+
+    router.push('/synoptics');
+  };
+
   return (
     <header className="border-b border-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-        <Link href="/" className="flex items-center">
+        <Link href="/synoptics" className="flex items-center" onClick={handleLogoClick}>
           <Image
             src="/logo.png"
             alt="VMAP logo"
