@@ -127,6 +127,8 @@ const messages: Messages = {
   'synoptics.hierarchy.deleteZone.confirm': 'Êtes-vous sûr de vouloir supprimer cette zone a0?',
   'synoptics.siteDetail.tabs.hierarchy': 'Hiérarchie',
   'synoptics.siteDetail.tabs.map': 'Carte',
+  'synoptics.siteDetail.tabs.equipment': 'Équipement',
+  'synoptics.siteDetail.tabs.layout': 'Layout',
   'synoptics.siteDetail.breadcrumb.sites': 'Sites',
   'synoptics.buildingEdit.title': 'Modifier le bâtiment',
   'synoptics.buildingEdit.breadcrumb.edit': 'Modifier le bâtiment',

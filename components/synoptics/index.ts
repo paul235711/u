@@ -61,10 +61,17 @@ export { ValveListDialog } from './components/v2/ValveListDialog';
 export { AllGasIndicators } from './components/v2/AllGasIndicators';
 export { GasTypeBadge } from './components/v2/GasTypeBadge';
 export { LayoutBadge } from './components/v2/LayoutBadge';
-export { SiteEquipmentMap } from './components/v2/SiteEquipmentMap';
+export {
+  SiteEquipmentMap,
+  SiteEquipmentProvider,
+  SiteEquipmentMapTabContent,
+  SiteEquipmentListTabContent,
+  SiteEquipmentDialogs,
+} from './components/v2/SiteEquipmentMap';
+export { SiteLayoutTab } from './components/v2/SiteLayoutTab';
 
 // ========================================
 // Backward Compatibility Aliases
 // ========================================
 export { SynopticViewer as EnhancedSynopticViewer } from './components/v2/SynopticViewer';
-export { createDefaultFilters, applyFilters } from './components/v2/NetworkFilterPanel';
+export { createDefaultFilters, applyFilters } from './shared/network-utils';
