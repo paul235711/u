@@ -1,13 +1,13 @@
 
-'use client';
+"use client";
 
 import { useState, useMemo } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
 import { useUIStore } from '../../stores/ui-store';
-import { EquipmentEditDialog } from './EquipmentEditDialog';
+import { EquipmentWizardDialog } from './equipment-wizard/EquipmentWizardDialog';
 import { EquipmentBankHeader } from './equipment-bank/components/EquipmentBankHeader';
-import { CreateEquipmentSection } from './equipment-bank/components/CreateEquipmentSection';
 import { EquipmentFilters } from './equipment-bank/components/EquipmentFilters';
 import { EquipmentList } from './equipment-bank/components/EquipmentList';
 import { EquipmentFooter } from './equipment-bank/components/EquipmentFooter';
@@ -19,7 +19,6 @@ import {
   useSelectedEquipment,
 } from './equipment-bank/hooks/useEquipmentQueries';
 import { EquipmentBankEnhancedProps } from './equipment-bank/types';
-import { GasOptionValue } from './equipment-bank/constants';
 
 export function EquipmentBankEnhanced({
   siteId,
@@ -36,13 +35,8 @@ export function EquipmentBankEnhanced({
   // Local state
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState<'all' | 'source' | 'valve' | 'fitting'>('all');
-  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [showCreateWizard, setShowCreateWizard] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
-
-  // Create form state
-  const [createType, setCreateType] = useState<'valve' | 'source' | 'fitting'>('valve');
-  const [createName, setCreateName] = useState('');
-  const [createGas, setCreateGas] = useState<GasOptionValue>('oxygen');
 
   // Data queries
   const { data: allNodes = [], isLoading: isLoadingNodes } = useEquipmentList(siteId);
@@ -81,53 +75,6 @@ export function EquipmentBankEnhanced({
       return matchesType && matchesSearch;
     });
   }, [availableNodes, selectedType, equipmentDetails, searchTerm]);
-
-  // Create equipment mutation
-  const createMutation = useMutation({
-    mutationFn: async () => {
-      let elementEndpoint = '';
-      let elementData: any = { siteId, name: createName.trim() };
-
-      if (createType === 'valve') {
-        elementEndpoint = '/api/synoptics/valves';
-        elementData.valveType = 'isolation';
-        elementData.gasType = createGas;
-        elementData.state = 'closed';
-      } else if (createType === 'source') {
-        elementEndpoint = '/api/synoptics/sources';
-        elementData.gasType = createGas;
-      } else if (createType === 'fitting') {
-        elementEndpoint = '/api/synoptics/fittings';
-        elementData.fittingType = 'tee';
-        elementData.gasType = createGas;
-      }
-
-      const elementResponse = await fetch(elementEndpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(elementData),
-      });
-      if (!elementResponse.ok) throw new Error('Failed to create element');
-      const element = await elementResponse.json();
-
-      const nodeResponse = await fetch('/api/synoptics/nodes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          siteId,
-          nodeType: createType,
-          elementId: element.id,
-        }),
-      });
-      if (!nodeResponse.ok) throw new Error('Failed to create node');
-      return nodeResponse.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['site-equipment', siteId] });
-      setCreateName('');
-      setShowCreateForm(false);
-    },
-  });
 
   // Remove from layout mutation
   const removeFromLayoutMutation = useMutation({
@@ -302,18 +249,16 @@ export function EquipmentBankEnhanced({
     <div className="w-80 bg-white border-l shadow-lg h-full flex flex-col">
       <EquipmentBankHeader onClose={onClose} />
 
-      <CreateEquipmentSection
-        isOpen={showCreateForm}
-        createType={createType}
-        createName={createName}
-        createGas={createGas}
-        isSubmitting={createMutation.isPending}
-        onToggle={() => setShowCreateForm(!showCreateForm)}
-        onTypeChange={setCreateType}
-        onNameChange={setCreateName}
-        onGasChange={setCreateGas}
-        onSubmit={() => createMutation.mutate()}
-      />
+      <div className="px-4 pt-2 pb-3">
+        <Button
+          type="button"
+          className="w-full justify-center"
+          variant="outline"
+          onClick={() => setShowCreateWizard(true)}
+        >
+          Ajouter un équipement
+        </Button>
+      </div>
 
       <SelectedEquipmentSection
         selectedEquipmentId={selectedElementId}
@@ -348,20 +293,33 @@ export function EquipmentBankEnhanced({
         onImportAll={handleImportAllToLayout}
       />
 
-      <EquipmentEditDialog
-        open={showEditDialog}
-        onOpenChange={setShowEditDialog}
-        node={selectedElement}
-        onSuccess={() => {
-          setShowEditDialog(false);
+      <EquipmentWizardDialog
+        open={showCreateWizard}
+        mode="create"
+        siteId={siteId}
+        onOpenChange={setShowCreateWizard}
+        onCompleted={() => {
+          setShowCreateWizard(false);
           queryClient.invalidateQueries({ queryKey: ['site-equipment', siteId] });
           queryClient.invalidateQueries({ queryKey: ['equipment-details'] });
-          queryClient.invalidateQueries({ queryKey: ['selected-equipment'] });
         }}
-        siteId={siteId}
-        siteLatitude={parseFloat((selectedElement as any)?.siteLatitude ?? '') || undefined}
-        siteLongitude={parseFloat((selectedElement as any)?.siteLongitude ?? '') || undefined}
       />
+
+      {selectedElement && (
+        <EquipmentWizardDialog
+          open={showEditDialog}
+          mode="edit"
+          siteId={siteId}
+          onOpenChange={setShowEditDialog}
+          node={selectedElement as any}
+          onCompleted={() => {
+            setShowEditDialog(false);
+            queryClient.invalidateQueries({ queryKey: ['site-equipment', siteId] });
+            queryClient.invalidateQueries({ queryKey: ['equipment-details'] });
+            queryClient.invalidateQueries({ queryKey: ['selected-equipment'] });
+          }}
+        />
+      )}
     </div>
   );
 }

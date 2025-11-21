@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, X, FileText, Loader2 } from 'lucide-react';
@@ -9,6 +9,7 @@ import { ChevronLeft, ChevronRight, X, FileText, Loader2 } from 'lucide-react';
 interface MediaDisplayProps {
   elementId: string;
   elementType: string;
+  allowDelete?: boolean;
 }
 
 interface MediaItem {
@@ -20,12 +21,11 @@ interface MediaItem {
   createdAt: string;
 }
 
-export function MediaDisplay({ elementId, elementType }: MediaDisplayProps) {
+export function MediaDisplay({ elementId, elementType, allowDelete }: MediaDisplayProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  
-  console.log('MediaDisplay rendered for:', elementId, elementType);
-  
+  const queryClient = useQueryClient();
+
   const { data: media = [], isLoading, error } = useQuery({
     queryKey: ['media', elementId, elementType],
     queryFn: async () => {
@@ -38,6 +38,20 @@ export function MediaDisplay({ elementId, elementType }: MediaDisplayProps) {
       return data as MediaItem[];
     },
     enabled: !!elementId && !!elementType,
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (mediaId: string) => {
+      const response = await fetch(`/api/media/${mediaId}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        throw new Error('Failed to delete media');
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['media', elementId, elementType] });
+    },
   });
 
   const handleClick = () => {
@@ -139,6 +153,30 @@ export function MediaDisplay({ elementId, elementType }: MediaDisplayProps) {
             >
               <X className="h-4 w-4" />
             </Button>
+
+            {/* Delete button */}
+            {allowDelete && media[currentImageIndex] && (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={async () => {
+                  try {
+                    await deleteMutation.mutateAsync(media[currentImageIndex].id);
+                    if (media.length <= 1) {
+                      setIsModalOpen(false);
+                    } else if (currentImageIndex >= media.length - 1) {
+                      setCurrentImageIndex(currentImageIndex - 1);
+                    }
+                  } catch (err) {
+                    console.error('Failed to delete media:', err);
+                    alert('Échec de la suppression du média');
+                  }
+                }}
+                className="absolute top-4 left-4 z-10"
+              >
+                Delete
+              </Button>
+            )}
 
             {/* Navigation buttons */}
             {media.length > 1 && (

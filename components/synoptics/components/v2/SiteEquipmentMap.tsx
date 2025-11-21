@@ -9,14 +9,11 @@ import {
   EquipmentGridView,
   EquipmentListView,
 } from './equipment-map';
-import { EquipmentEditDialog } from './EquipmentEditDialog';
-import { EquipmentCreateDialog } from './EquipmentCreateDialog';
 import { EquipmentDeleteDialog } from './EquipmentDeleteDialog';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
-import { EquipmentCard } from './EquipmentCard';
-import { MediaDisplay } from './MediaDisplay';
 import { useDownstreamNodes } from './hooks/useDownstreamNodes';
+import { EquipmentWizardDialog } from './equipment-wizard/EquipmentWizardDialog';
 
 const DEFAULT_CENTER: [number, number] = [2.3522, 48.8566];
 
@@ -522,25 +519,29 @@ export function SiteEquipmentMap({
         />
       )}
 
-      {/* Equipment Edit Dialog */}
+      {/* Equipment Wizard - Edit */}
       {selectedEquipment && (
-        <EquipmentEditDialog
+        <EquipmentWizardDialog
           open={showEditDialog}
-          onOpenChange={setShowEditDialog}
-          node={selectedEquipment}
-          onSuccess={handleEditSuccess}
+          mode="edit"
           siteId={siteId}
+          onOpenChange={setShowEditDialog}
           siteLatitude={siteLatitude}
           siteLongitude={siteLongitude}
+          node={selectedEquipment as any}
+          onCompleted={handleEditSuccess}
         />
       )}
 
-      <EquipmentCreateDialog
+      {/* Equipment Wizard - Create */}
+      <EquipmentWizardDialog
         open={isCreateOpen}
-        onOpenChange={setIsCreateOpen}
+        mode="create"
         siteId={siteId}
-        hierarchyData={hierarchyData}
-        onSuccess={() => {
+        onOpenChange={setIsCreateOpen}
+        siteLatitude={siteLatitude}
+        siteLongitude={siteLongitude}
+        onCompleted={() => {
           queryClient.invalidateQueries({ queryKey: ['site-equipment', siteId] });
           queryClient.invalidateQueries({ queryKey: ['site-hierarchy', siteId] });
           setIsCreateOpen(false);

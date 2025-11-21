@@ -5,9 +5,9 @@
 
 'use client';
 
-import { QuickAddDialog } from './QuickAddDialog';
 import { ConfirmationDialog } from '@/components/synoptics/shared/confirmation-dialog';
 import { useUIStore } from '../../stores/ui-store';
+import { EquipmentWizardDialog } from './equipment-wizard/EquipmentWizardDialog';
 
 interface LayoutEditorDialogsProps {
   layout: any;
@@ -30,16 +30,16 @@ export function LayoutEditorDialogs({
 
   return (
     <>
-      {/* Quick Add Dialog - Currently using old implementation */}
+      {/* Quick Add - now uses unified EquipmentWizardDialog in create mode */}
       {showQuickAdd && (
-        <QuickAddDialog
+        <EquipmentWizardDialog
           open={showQuickAdd}
-          elementType={'valve' as any} // TODO: Track element type in store
-          position={{ x: 0, y: 0 }} // TODO: Track position in store
-          onSubmit={async () => {
+          mode="create"
+          siteId={layout.siteId}
+          onOpenChange={(open) => setDialog('quickAdd', open)}
+          onCompleted={() => {
             setDialog('quickAdd', false);
           }}
-          onCancel={() => setDialog('quickAdd', false)}
         />
       )}
 

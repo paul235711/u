@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUser } from '@/lib/db/queries';
-import { stat, readFile } from 'fs/promises';
+import { stat, readFile, unlink } from 'fs/promises';
 import { join } from 'path';
 
 export async function GET(
@@ -61,6 +61,50 @@ export async function GET(
 
   } catch (error) {
     console.error('Media serving error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ mediaId: string }> }
+) {
+  try {
+    const user = await getUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { mediaId } = await params;
+
+    if (!mediaId) {
+      return NextResponse.json({ error: 'Media ID required' }, { status: 400 });
+    }
+
+    const { getMediaById, deleteMedia } = await import('@/lib/db/synoptics-queries');
+    const media = await getMediaById(mediaId);
+
+    if (!media) {
+      return NextResponse.json({ error: 'Media not found' }, { status: 404 });
+    }
+
+    const filePath = join(process.cwd(), 'public', media.storagePath);
+
+    try {
+      await unlink(filePath);
+    } catch (fileError) {
+      console.warn('Failed to delete media file from disk:', fileError);
+      // Continue to delete DB record even if file is missing
+    }
+
+    await deleteMedia(mediaId);
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Media delete error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

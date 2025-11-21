@@ -44,8 +44,6 @@ export { SiteHierarchyManagerOptimized as SiteHierarchyManager } from './compone
 
 // Equipment Management
 export { EquipmentBankEnhanced } from './components/v2/EquipmentBankEnhanced';
-export { EquipmentCreateDialog } from './components/v2/EquipmentCreateDialog';
-export { EquipmentEditDialog } from './components/v2/EquipmentEditDialog';
 export { EquipmentDeleteDialog } from './components/v2/EquipmentDeleteDialog';
 export { EquipmentLocationBreadcrumb } from './components/v2/EquipmentLocationBreadcrumb';
 
@@ -55,7 +53,6 @@ export { LayoutSelectorDialog } from './components/v2/LayoutSelectorDialog';
 export { LayoutSelectorForEquipment } from './components/v2/LayoutSelectorForEquipment';
 
 // Quick Action Dialogs
-export { QuickAddDialog } from './components/v2/QuickAddDialog';
 export { QuickLayoutDialog } from './components/v2/QuickLayoutDialog';
 export { QuickValveDialog } from './components/v2/QuickValveDialog';
 export { ValveListDialog } from './components/v2/ValveListDialog';
