@@ -52,7 +52,20 @@ export async function GET(request: NextRequest) {
         .where(eq(nodePositions.layoutId, layoutId));
     }
 
-    return NextResponse.json(positions || []);
+    // Deduplicate by (nodeId, layoutId) to avoid duplicate entries
+    const deduped = Array.isArray(positions)
+      ? Array.from(
+          positions.reduce((map, pos: any) => {
+            const key = `${pos.nodeId}-${pos.layoutId}`;
+            if (!map.has(key)) {
+              map.set(key, pos);
+            }
+            return map;
+          }, new Map<string, any>()).values()
+        )
+      : [];
+
+    return NextResponse.json(deduped);
   } catch (error) {
     console.error('Error fetching node positions:', error);
     return NextResponse.json(

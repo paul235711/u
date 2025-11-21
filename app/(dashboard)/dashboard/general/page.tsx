@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
+import { useI18n } from '@/app/i18n-provider';
 import { updateAccount } from '@/app/(login)/actions';
 import { User } from '@/lib/db/schema';
 import useSWR from 'swr';
@@ -30,29 +31,31 @@ function AccountForm({
   nameValue = '',
   emailValue = ''
 }: AccountFormProps) {
+  const { t } = useI18n();
+
   return (
     <>
       <div>
         <Label htmlFor="name" className="mb-2">
-          Name
+          {t('dashboard.general.nameLabel')}
         </Label>
         <Input
           id="name"
           name="name"
-          placeholder="Enter your name"
+          placeholder={t('dashboard.general.namePlaceholder')}
           defaultValue={state.name || nameValue}
           required
         />
       </div>
       <div>
         <Label htmlFor="email" className="mb-2">
-          Email
+          {t('auth.field.email.label')}
         </Label>
         <Input
           id="email"
           name="email"
           type="email"
-          placeholder="Enter your email"
+          placeholder={t('auth.field.email.placeholder')}
           defaultValue={emailValue}
           required
         />
@@ -77,16 +80,17 @@ export default function GeneralPage() {
     updateAccount,
     {}
   );
+  const { t } = useI18n();
 
   return (
     <section className="flex-1 p-4 lg:p-8">
       <h1 className="text-lg lg:text-2xl font-medium text-gray-900 mb-6">
-        General Settings
+        {t('dashboard.general.title')}
       </h1>
 
       <Card>
         <CardHeader>
-          <CardTitle>Account Information</CardTitle>
+          <CardTitle>{t('dashboard.general.accountCardTitle')}</CardTitle>
         </CardHeader>
         <CardContent>
           <form className="space-y-4" action={formAction}>
@@ -107,10 +111,10 @@ export default function GeneralPage() {
               {isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving...
+                  {t('dashboard.general.saveLoading')}
                 </>
               ) : (
-                'Save Changes'
+                t('dashboard.general.saveButton')
               )}
             </Button>
           </form>

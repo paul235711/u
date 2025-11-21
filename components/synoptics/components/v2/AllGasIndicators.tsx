@@ -1,7 +1,8 @@
-'use client';
+"use client";
 
 import { cn } from '@/lib/utils';
-import type { GasType } from '@/components/synoptics/hierarchy/gas-indicators';
+import type { GasType } from './hierarchy/gas-indicators';
+import { getGasConfig } from './hierarchy/gas-config';
 
 interface AllGasIndicatorsProps {
   activeGases: GasType[];
@@ -11,24 +12,6 @@ interface AllGasIndicatorsProps {
 
 // Fixed order for all gas types
 const GAS_ORDER: GasType[] = ['oxygen', 'medical_air', 'nitrous_oxide', 'carbon_dioxide', 'nitrogen', 'vacuum'];
-
-const GAS_COLORS: Record<GasType, string> = {
-  oxygen: 'bg-red-500',
-  medical_air: 'bg-yellow-500',
-  nitrous_oxide: 'bg-blue-500',
-  carbon_dioxide: 'bg-green-500',
-  nitrogen: 'bg-gray-500',
-  vacuum: 'bg-purple-500',
-};
-
-const GAS_LABELS: Record<GasType, string> = {
-  oxygen: 'O₂',
-  medical_air: 'Air',
-  nitrous_oxide: 'N₂O',
-  carbon_dioxide: 'CO₂',
-  nitrogen: 'N₂',
-  vacuum: 'Vac',
-};
 
 /**
  * Display all gas types in fixed order
@@ -57,11 +40,13 @@ export function AllGasIndicators({ activeGases, allSiteGases, size = 'md' }: All
             className={cn(
               'inline-flex items-center justify-center rounded font-medium text-white',
               sizeClasses[size],
-              isActive ? GAS_COLORS[gasType] : 'bg-gray-300 text-gray-500'
+              isActive
+                ? `${getGasConfig(gasType).bgColor} ${getGasConfig(gasType).textColor}`
+                : 'bg-gray-300 text-gray-500'
             )}
             title={`${gasType}${isActive ? ' (active here)' : ' (used elsewhere on site)'}`}
           >
-            {GAS_LABELS[gasType]}
+            {getGasConfig(gasType).shortLabel}
           </div>
         );
       })}

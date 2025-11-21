@@ -6,7 +6,6 @@ import { use, useState, Suspense } from 'react';
 import { Button } from '@/components/ui/button';
 import { Home, LogOut, Building2 } from 'lucide-react';
 import { useI18n } from '@/app/i18n-provider';
-import { LocaleSwitcher } from '@/components/locale-switcher';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -41,6 +40,12 @@ function UserMenu() {
           className="text-sm font-medium text-gray-700 hover:text-gray-900"
         >
           {t('header.nav.pricing')}
+        </Link>
+        <Link
+          href="/sign-in"
+          className="text-sm font-medium text-gray-700 hover:text-gray-900"
+        >
+          {t('header.nav.signin')}
         </Link>
         <Button asChild className="rounded-full">
           <Link href="/sign-up">{t('header.nav.signup')}</Link>
@@ -125,7 +130,6 @@ function Header() {
           <span className="ml-2 text-xl font-semibold text-gray-900">VMap</span>
         </Link>
         <div className="flex items-center space-x-6">
-          <LocaleSwitcher />
           <Suspense fallback={<div className="h-9" />}>
             <UserMenu />
           </Suspense>

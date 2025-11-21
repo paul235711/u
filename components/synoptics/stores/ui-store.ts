@@ -5,6 +5,8 @@
 
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
+import type { NetworkFilters } from '../shared/network-utils';
+import { createDefaultFilters } from '../shared/network-utils';
 
 type ElementType = 'source' | 'valve' | 'fitting';
 type EdgeToolMode = 'select' | 'cut';
@@ -41,6 +43,7 @@ interface UIState {
     deleteConfirm: boolean;
   };
   quickAddContext: QuickAddContext | null;
+  filters: NetworkFilters;
 
   // Actions
   toggleLock: () => void;
@@ -58,6 +61,8 @@ interface UIState {
   setDialog: (dialog: keyof UIState['dialogs'], open: boolean) => void;
   openQuickAddDialog: (context: QuickAddContext) => void;
   closeQuickAddDialog: () => void;
+  setFilters: (filters: NetworkFilters) => void;
+  resetFilters: () => void;
   reset: () => void;
 }
 
@@ -88,6 +93,7 @@ export const useUIStore = create<UIState>()(
       selectedElementId: null,
       dialogs: initialDialogs,
       quickAddContext: null,
+      filters: createDefaultFilters(),
 
       // Actions
       toggleLock: () =>
@@ -216,6 +222,20 @@ export const useUIStore = create<UIState>()(
           'closeQuickAddDialog'
         ),
 
+      setFilters: (filters) =>
+        set(
+          { filters },
+          false,
+          'setFilters'
+        ),
+
+      resetFilters: () =>
+        set(
+          { filters: createDefaultFilters() },
+          false,
+          'resetFilters'
+        ),
+
       reset: () =>
         set(
           {
@@ -227,6 +247,7 @@ export const useUIStore = create<UIState>()(
             selectedElementId: null,
             dialogs: initialDialogs,
             quickAddContext: null,
+            filters: createDefaultFilters(),
           },
           false,
           'reset'

@@ -306,3 +306,117 @@ export function findDownstreamNodes(
 
   return downstream;
 }
+
+export interface NetworkFilters {
+  searchQuery: string;
+  selectedGasTypes: Set<string>;
+  selectedNodeTypes: Set<'source' | 'valve' | 'fitting'>;
+  selectedBuildingIds: Set<string>;
+  showIsolated: boolean;
+  highlightedNodes: Set<string>;
+}
+
+export function createDefaultFilters(): NetworkFilters {
+  return {
+    searchQuery: '',
+    selectedGasTypes: new Set(),
+    selectedNodeTypes: new Set(),
+    selectedBuildingIds: new Set(),
+    showIsolated: false,
+    highlightedNodes: new Set(),
+  };
+}
+
+export function applyNetworkFilters(
+  nodes: any[],
+  connections: any[],
+  filters: NetworkFilters
+): { visibleNodeIds: Set<string>; visibleConnectionIds: Set<string> } {
+  let filteredNodeIds = new Set(nodes.map((n: any) => n.id));
+
+  if (filters.searchQuery) {
+    const query = filters.searchQuery.toLowerCase();
+    filteredNodeIds = new Set(
+      nodes
+        .filter(
+          (node: any) =>
+            node.name?.toLowerCase().includes(query) ||
+            node.gasType?.toLowerCase().includes(query) ||
+            node.nodeType?.toLowerCase().includes(query)
+        )
+        .map((n: any) => n.id)
+    );
+  }
+
+  if (filters.selectedGasTypes.size > 0) {
+    const gasRelatedNodeIds = new Set<string>();
+    const gasRelatedConnectionIds = new Set<string>();
+
+    connections.forEach((conn: any) => {
+      if (filters.selectedGasTypes.has(conn.gasType)) {
+        gasRelatedConnectionIds.add(conn.id);
+        gasRelatedNodeIds.add(conn.fromNodeId);
+        gasRelatedNodeIds.add(conn.toNodeId);
+      }
+    });
+
+    nodes.forEach((node: any) => {
+      if (filters.selectedGasTypes.has(node.gasType)) {
+        gasRelatedNodeIds.add(node.id);
+      }
+    });
+
+    filteredNodeIds = new Set(
+      Array.from(filteredNodeIds).filter((id) => gasRelatedNodeIds.has(id))
+    );
+  }
+
+  if (filters.selectedBuildingIds.size > 0) {
+    filteredNodeIds = new Set(
+      Array.from(filteredNodeIds).filter((id) => {
+        const node = nodes.find((n: any) => n.id === id);
+        return node && node.buildingId && filters.selectedBuildingIds.has(node.buildingId);
+      })
+    );
+  }
+
+  if (filters.selectedNodeTypes.size > 0) {
+    filteredNodeIds = new Set(
+      Array.from(filteredNodeIds).filter((id) => {
+        const node = nodes.find((n: any) => n.id === id);
+        return node && filters.selectedNodeTypes.has(node.nodeType);
+      })
+    );
+  }
+
+  if (filters.showIsolated) {
+    const connectedNodeIds = new Set<string>();
+    connections.forEach((conn: any) => {
+      connectedNodeIds.add(conn.fromNodeId);
+      connectedNodeIds.add(conn.toNodeId);
+    });
+    filteredNodeIds = new Set(
+      Array.from(filteredNodeIds).filter((id) => !connectedNodeIds.has(id))
+    );
+  }
+
+  const visibleConnectionIds = new Set<string>();
+  connections.forEach((conn: any) => {
+    if (filteredNodeIds.has(conn.fromNodeId) && filteredNodeIds.has(conn.toNodeId)) {
+      visibleConnectionIds.add(conn.id);
+    }
+  });
+
+  return {
+    visibleNodeIds: filteredNodeIds,
+    visibleConnectionIds,
+  };
+}
+
+export function applyFilters(
+  nodes: any[],
+  connections: any[],
+  filters: NetworkFilters
+): Set<string> {
+  return applyNetworkFilters(nodes, connections, filters).visibleNodeIds;
+}

@@ -1,10 +1,11 @@
-'use client';
+"use client";
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useQuery } from '@tanstack/react-query';
 import { Loader2 } from 'lucide-react';
-import type { GasType } from '@/components/synoptics/hierarchy/gas-indicators';
+import type { GasType } from './hierarchy/gas-indicators';
 import { MediaDisplay } from './MediaDisplay';
+import { getGasConfig } from './hierarchy/gas-config';
 
 interface ValveListDialogProps {
   open: boolean;
@@ -14,24 +15,6 @@ interface ValveListDialogProps {
   organizationId: string;
   siteId: string;
 }
-
-const GAS_COLORS: Record<GasType, string> = {
-  oxygen: 'bg-red-500',
-  medical_air: 'bg-yellow-500',
-  nitrous_oxide: 'bg-blue-500',
-  carbon_dioxide: 'bg-green-500',
-  nitrogen: 'bg-gray-500',
-  vacuum: 'bg-purple-500',
-};
-
-const GAS_LABELS: Record<GasType, string> = {
-  oxygen: 'O₂',
-  medical_air: 'Air',
-  nitrous_oxide: 'N₂O',
-  carbon_dioxide: 'CO₂',
-  nitrogen: 'N₂',
-  vacuum: 'Vac',
-};
 
 /**
  * Dialog to show all valves for a location
@@ -97,7 +80,9 @@ export function ValveListDialog({
           </p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 py-4">
-            {valves.map((valve: any) => (
+            {valves.map((valve: any) => {
+              const gasConfig = valve.gasType ? getGasConfig(valve.gasType as string) : null;
+              return (
               <div
                 key={valve.id}
                 className="border rounded-lg p-4 hover:shadow-md transition-shadow"
@@ -113,13 +98,11 @@ export function ValveListDialog({
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <h4 className="font-medium">{valve.name || 'Unnamed Valve'}</h4>
-                    {valve.gasType && (
+                    {valve.gasType && gasConfig && (
                       <div
-                        className={`inline-flex items-center justify-center rounded px-2 py-1 text-xs font-medium text-white ${
-                          GAS_COLORS[valve.gasType as GasType] || 'bg-gray-500'
-                        }`}
+                        className={`inline-flex items-center justify-center rounded px-2 py-1 text-xs font-medium ${gasConfig.bgColor} ${gasConfig.textColor}`}
                       >
-                        {GAS_LABELS[valve.gasType as GasType] || valve.gasType}
+                        {gasConfig.shortLabel}
                       </div>
                     )}
                   </div>
@@ -139,7 +122,7 @@ export function ValveListDialog({
                   </div>
                 </div>
               </div>
-            ))}
+            );})}
           </div>
         )}
       </DialogContent>

@@ -13,6 +13,8 @@ import {
 } from 'lucide-react';
 import { ActivityType } from '@/lib/db/schema';
 import { getActivityLogs } from '@/lib/db/queries';
+import { getMessages, getRequestLocale } from '@/lib/i18n/server';
+import type { Messages } from '@/lib/i18n/en';
 
 const iconMap: Record<ActivityType, LucideIcon> = {
   [ActivityType.SIGN_UP]: UserPlus,
@@ -28,58 +30,68 @@ const iconMap: Record<ActivityType, LucideIcon> = {
   [ActivityType.CANCEL_INVITATION]: UserMinus,
 };
 
-function getRelativeTime(date: Date) {
+function getRelativeTime(date: Date, messages: Messages) {
   const now = new Date();
   const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
 
-  if (diffInSeconds < 60) return 'just now';
-  if (diffInSeconds < 3600)
-    return `${Math.floor(diffInSeconds / 60)} minutes ago`;
-  if (diffInSeconds < 86400)
-    return `${Math.floor(diffInSeconds / 3600)} hours ago`;
-  if (diffInSeconds < 604800)
-    return `${Math.floor(diffInSeconds / 86400)} days ago`;
+  if (diffInSeconds < 60) return messages['dashboard.activity.relative.justNow'];
+  if (diffInSeconds < 3600) {
+    const minutes = Math.floor(diffInSeconds / 60);
+    return `${messages['dashboard.activity.relative.minutesPrefix']}${minutes}${messages['dashboard.activity.relative.minutesSuffix']}`;
+  }
+  if (diffInSeconds < 86400) {
+    const hours = Math.floor(diffInSeconds / 3600);
+    return `${messages['dashboard.activity.relative.hoursPrefix']}${hours}${messages['dashboard.activity.relative.hoursSuffix']}`;
+  }
+  if (diffInSeconds < 604800) {
+    const days = Math.floor(diffInSeconds / 86400);
+    return `${messages['dashboard.activity.relative.daysPrefix']}${days}${messages['dashboard.activity.relative.daysSuffix']}`;
+  }
   return date.toLocaleDateString();
 }
 
-function formatAction(action: ActivityType): string {
+function formatAction(action: ActivityType, messages: Messages): string {
   switch (action) {
     case ActivityType.SIGN_UP:
-      return 'You signed up';
+      return messages['dashboard.activity.action.signUp'];
     case ActivityType.SIGN_IN:
-      return 'You signed in';
+      return messages['dashboard.activity.action.signIn'];
     case ActivityType.SIGN_OUT:
-      return 'You signed out';
+      return messages['dashboard.activity.action.signOut'];
     case ActivityType.UPDATE_PASSWORD:
-      return 'You changed your password';
+      return messages['dashboard.activity.action.updatePassword'];
     case ActivityType.DELETE_ACCOUNT:
-      return 'You deleted your account';
+      return messages['dashboard.activity.action.deleteAccount'];
     case ActivityType.UPDATE_ACCOUNT:
-      return 'You updated your account';
+      return messages['dashboard.activity.action.updateAccount'];
     case ActivityType.CREATE_TEAM:
-      return 'You created a new team';
+      return messages['dashboard.activity.action.createTeam'];
     case ActivityType.REMOVE_TEAM_MEMBER:
-      return 'You removed a team member';
+      return messages['dashboard.activity.action.removeTeamMember'];
     case ActivityType.INVITE_TEAM_MEMBER:
-      return 'You invited a team member';
+      return messages['dashboard.activity.action.inviteTeamMember'];
     case ActivityType.ACCEPT_INVITATION:
-      return 'You accepted an invitation';
+      return messages['dashboard.activity.action.acceptInvitation'];
+    case ActivityType.CANCEL_INVITATION:
+      return messages['dashboard.activity.action.cancelInvitation'];
     default:
-      return 'Unknown action occurred';
+      return messages['dashboard.activity.action.unknown'];
   }
 }
 
 export default async function ActivityPage() {
   const logs = await getActivityLogs();
+  const locale = await getRequestLocale();
+  const messages = getMessages(locale);
 
   return (
     <section className="flex-1 p-4 lg:p-8">
       <h1 className="text-lg lg:text-2xl font-medium text-gray-900 mb-6">
-        Activity Log
+        {messages['dashboard.activity.title']}
       </h1>
       <Card>
         <CardHeader>
-          <CardTitle>Recent Activity</CardTitle>
+          <CardTitle>{messages['dashboard.activity.cardTitle']}</CardTitle>
         </CardHeader>
         <CardContent>
           {logs.length > 0 ? (
@@ -87,7 +99,8 @@ export default async function ActivityPage() {
               {logs.map((log) => {
                 const Icon = iconMap[log.action as ActivityType] || Settings;
                 const formattedAction = formatAction(
-                  log.action as ActivityType
+                  log.action as ActivityType,
+                  messages
                 );
 
                 return (
@@ -98,10 +111,10 @@ export default async function ActivityPage() {
                     <div className="flex-1">
                       <p className="text-sm font-medium text-gray-900">
                         {formattedAction}
-                        {log.ipAddress && ` from IP ${log.ipAddress}`}
+                        {log.ipAddress && ` ${messages['dashboard.activity.fromIpPrefix']} ${log.ipAddress}`}
                       </p>
                       <p className="text-xs text-gray-500">
-                        {getRelativeTime(new Date(log.timestamp))}
+                        {getRelativeTime(new Date(log.timestamp), messages)}
                       </p>
                     </div>
                   </li>
@@ -112,11 +125,10 @@ export default async function ActivityPage() {
             <div className="flex flex-col items-center justify-center text-center py-12">
               <AlertCircle className="h-12 w-12 text-blue-500 mb-4" />
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                No activity yet
+                {messages['dashboard.activity.emptyTitle']}
               </h3>
               <p className="text-sm text-gray-500 max-w-sm">
-                When you perform actions like signing in or updating your
-                account, they'll appear here.
+                {messages['dashboard.activity.emptyBody']}
               </p>
             </div>
           )}

@@ -2,15 +2,14 @@
 
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { GAS_CONFIG } from '../components/v2/hierarchy/gas-config';
 
-export const GAS_TYPES = [
-  { value: 'oxygen', label: 'Oxygen', symbol: 'O₂', color: 'bg-red-500' },
-  { value: 'medical_air', label: 'Medical Air', symbol: 'Air', color: 'bg-purple-600' },
-  { value: 'vacuum', label: 'Vacuum', symbol: 'VAC', color: 'bg-green-500' },
-  { value: 'nitrogen', label: 'Nitrogen', symbol: 'N₂', color: 'bg-blue-500' },
-  { value: 'nitrous_oxide', label: 'Nitrous Oxide', symbol: 'N₂O', color: 'bg-orange-500' },
-  { value: 'carbon_dioxide', label: 'Carbon Dioxide', symbol: 'CO₂', color: 'bg-gray-600' },
-] as const;
+export const GAS_TYPES = Object.entries(GAS_CONFIG).map(([value, config]) => ({
+  value,
+  label: config.label,
+  symbol: config.shortLabel,
+  color: config.bgColor,
+}));
 
 interface GasTypeSelectorProps {
   value: string;

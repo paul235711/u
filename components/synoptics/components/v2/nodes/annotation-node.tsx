@@ -2,6 +2,7 @@
 
 import { memo, useState, useCallback } from 'react';
 import { NodeProps, NodeResizer } from '@xyflow/react';
+import { Building2 } from 'lucide-react';
 
 export const AnnotationNode = memo(({ data, selected }: NodeProps) => {
   const { type, title, color, width, height, onUpdate, editable } = data as {
@@ -85,23 +86,53 @@ export const AnnotationNode = memo(({ data, selected }: NodeProps) => {
     );
   }
 
-  // Building - Grand titre
+  // Building - Header bar spanning the building column
   if (type === 'building') {
     return (
       <div
         style={{
-          fontSize: 24,
-          fontWeight: 700,
-          color: '#374151',
+          width: width || 320,
+          height: height || 44,
+          borderRadius: 9999,
+          background: 'linear-gradient(90deg, #111827, #111827)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 8,
+          padding: '0 14px',
+          boxShadow: selected
+            ? '0 0 0 2px rgba(59, 130, 246, 0.45)'
+            : '0 4px 10px rgba(15, 23, 42, 0.25)',
+          border: selected ? '1px solid #3b82f6' : '1px solid rgba(148, 163, 184, 0.35)',
           cursor: editable ? 'move' : 'default',
-          padding: 4,
-          borderRadius: 4,
-          backgroundColor: selected ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
-          border: selected ? '2px solid #3b82f6' : '2px solid transparent',
-          whiteSpace: 'nowrap',
         }}
       >
-        {title}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 24,
+            height: 24,
+            borderRadius: 9999,
+            backgroundColor: '#020617',
+            border: '1px solid rgba(148, 163, 184, 0.5)',
+          }}
+        >
+          <Building2 size={16} color="#e5e7eb" />
+        </div>
+        <span
+          style={{
+            fontSize: 16,
+            fontWeight: 600,
+            letterSpacing: 0.04,
+            textTransform: 'uppercase',
+            color: '#f9fafb',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {title}
+        </span>
       </div>
     );
   }

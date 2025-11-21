@@ -5,6 +5,7 @@ import mapboxgl, { MapboxGeoJSONFeature } from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { Loader2 } from 'lucide-react';
 import { MapGasLegend } from './MapGasLegend';
+import { GAS_LINE_COLORS } from '../hierarchy/gas-config';
 
 const STATUS_PALETTE: Record<string, { color: string; badge: string; muted: string }> = {
   open: { color: '#16a34a', badge: 'bg-emerald-100 text-emerald-700', muted: 'bg-emerald-50 text-emerald-400' },
@@ -17,14 +18,14 @@ const STATUS_PALETTE: Record<string, { color: string; badge: string; muted: stri
 const DEFAULT_ZOOM = 13;
 
 const GAS_COLORS: Record<string, string> = {
-  oxygen: '#ef4444',
-  medical_air: '#9333ea',
-  vacuum: '#22c55e',
-  nitrogen: '#3b82f6',
-  nitrous_oxide: '#f97316',
-  carbon_dioxide: '#6b7280',
-  co2: '#6b7280',
-  compressed_air: '#8b5cf6',
+  oxygen: GAS_LINE_COLORS.oxygen,
+  medical_air: GAS_LINE_COLORS.medical_air,
+  vacuum: GAS_LINE_COLORS.vacuum,
+  nitrogen: GAS_LINE_COLORS.nitrogen,
+  nitrous_oxide: GAS_LINE_COLORS.nitrous_oxide,
+  carbon_dioxide: GAS_LINE_COLORS.carbon_dioxide,
+  co2: GAS_LINE_COLORS.co2,
+  compressed_air: GAS_LINE_COLORS.compressed_air,
 };
 
 interface EquipmentMapViewProps {

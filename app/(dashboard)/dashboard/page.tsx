@@ -19,6 +19,8 @@ import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Loader2, PlusCircle } from 'lucide-react';
+import { LocaleSwitcher } from '@/components/locale-switcher';
+import { useI18n } from '@/app/i18n-provider';
 
 type ActionState = {
   error?: string;
@@ -28,10 +30,12 @@ type ActionState = {
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 function SubscriptionSkeleton() {
+  const { t } = useI18n();
+
   return (
     <Card className="mb-8 h-[140px]">
       <CardHeader>
-        <CardTitle>Team Subscription</CardTitle>
+        <CardTitle>{t('dashboard.subscription.cardTitle')}</CardTitle>
       </CardHeader>
     </Card>
   );
@@ -41,6 +45,7 @@ function UserInvitations() {
   const { data: invitations, mutate } = useSWR<any[]>('/api/invitations', fetcher);
   const { mutate: globalMutate } = useSWRConfig();
   const [state, action, pending] = useActionState<ActionState, FormData>(acceptInvitation, {});
+   const { t } = useI18n();
 
   const list = Array.isArray(invitations) ? invitations : [];
 
@@ -51,14 +56,16 @@ function UserInvitations() {
   return (
     <Card className="mb-8">
       <CardHeader>
-        <CardTitle>Your Invitations</CardTitle>
+        <CardTitle>{t('dashboard.invitations.yourInvitationsTitle')}</CardTitle>
       </CardHeader>
       <CardContent>
         <ul className="space-y-3">
           {list.map((inv) => (
             <li key={inv.id} className="flex items-center justify-between">
               <div>
-                <p className="font-medium">{inv.teamName || `Team #${inv.teamId}`}</p>
+                <p className="font-medium">
+                  {inv.teamName || `${t('dashboard.invitations.teamPrefix')}${inv.teamId}`}
+                </p>
                 <p className="text-sm text-muted-foreground capitalize">{inv.role}</p>
               </div>
               <form
@@ -72,7 +79,7 @@ function UserInvitations() {
               >
                 <input type="hidden" name="invitationId" value={inv.id} />
                 <Button type="submit" size="sm" disabled={pending}>
-                  {pending ? 'Joining...' : 'Accept'}
+                  {pending ? t('dashboard.invitations.acceptLoading') : t('dashboard.invitations.acceptButton')}
                 </Button>
               </form>
             </li>
@@ -90,6 +97,7 @@ function InvitationsList() {
   const { data: user } = useSWR<User>('/api/user', fetcher);
   const isOwner = user?.role === 'owner';
   const [cancelState, cancelAction, cancelPending] = useActionState<ActionState, FormData>(cancelInvitation, {});
+  const { t } = useI18n();
 
   const pendingInvites = teamData?.invitations?.filter((i: any) => i.status === 'pending') || [];
   if (!pendingInvites.length) {
@@ -99,7 +107,7 @@ function InvitationsList() {
   return (
     <Card className="mb-8">
       <CardHeader>
-        <CardTitle>Pending Invitations</CardTitle>
+        <CardTitle>{t('dashboard.invitations.pendingTitle')}</CardTitle>
       </CardHeader>
       <CardContent>
         <ul className="space-y-3">
@@ -118,7 +126,7 @@ function InvitationsList() {
               >
                 <input type="hidden" name="invitationId" value={inv.id} />
                 <Button type="submit" size="sm" variant="outline" disabled={!isOwner || cancelPending}>
-                  {cancelPending ? 'Canceling...' : 'Cancel'}
+                  {cancelPending ? t('dashboard.invitations.cancelLoading') : t('common.cancel')}
                 </Button>
               </form>
             </li>
@@ -138,10 +146,11 @@ function TeamNameForm() {
   const [state, action, pending] = useActionState<ActionState, FormData>(updateTeamName, {});
   const [editing, setEditing] = useState(false);
   const [localName, setLocalName] = useState<string>('');
+  const { t } = useI18n();
   return (
     <Card className="mb-8">
       <CardHeader>
-        <CardTitle>Team Name</CardTitle>
+        <CardTitle>{t('dashboard.team.nameCardTitle')}</CardTitle>
       </CardHeader>
       <CardContent>
         {!isOwner && (
@@ -159,7 +168,7 @@ function TeamNameForm() {
                 setEditing(true);
               }}
             >
-              Edit
+              {t('dashboard.team.editButton')}
             </Button>
           </div>
         )}
@@ -179,11 +188,11 @@ function TeamNameForm() {
             <Input
               value={localName}
               onChange={(e) => setLocalName(e.target.value)}
-              placeholder="Enter team name"
+              placeholder={t('dashboard.team.nameInputPlaceholder')}
               disabled={pending}
             />
             <Button type="submit" disabled={pending}>
-              {pending ? 'Saving...' : 'Save'}
+              {pending ? t('dashboard.team.saveLoading') : t('dashboard.team.saveButton')}
             </Button>
             <Button
               type="button"
@@ -191,7 +200,7 @@ function TeamNameForm() {
               onClick={() => setEditing(false)}
               disabled={pending}
             >
-              Cancel
+              {t('common.cancel')}
             </Button>
           </form>
         )}
@@ -206,6 +215,7 @@ function ManageSubscription() {
   const { data: teamData } = useSWR<TeamDataWithMembers>('/api/team', fetcher);
   const { data: user } = useSWR<User>('/api/user', fetcher);
   const isOwner = user?.role === 'owner';
+  const { t } = useI18n();
 
   if (!isOwner) {
     return null;
@@ -214,26 +224,26 @@ function ManageSubscription() {
   return (
     <Card className="mb-8">
       <CardHeader>
-        <CardTitle>Team Subscription</CardTitle>
+        <CardTitle>{t('dashboard.subscription.cardTitle')}</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
             <div className="mb-4 sm:mb-0">
               <p className="font-medium">
-                Current Plan: {teamData?.planName || 'Free'}
+                {t('dashboard.subscription.currentPlan')} {teamData?.planName || t('dashboard.subscription.freePlan')}
               </p>
               <p className="text-sm text-muted-foreground">
                 {teamData?.subscriptionStatus === 'active'
-                  ? 'Billed monthly'
+                  ? t('dashboard.subscription.billedMonthly')
                   : teamData?.subscriptionStatus === 'trialing'
-                  ? 'Trial period'
-                  : 'No active subscription'}
+                  ? t('dashboard.subscription.trialPeriod')
+                  : t('dashboard.subscription.noActive')}
               </p>
             </div>
             <form action={customerPortalAction}>
               <Button type="submit" variant="outline">
-                Manage Subscription
+                {t('dashboard.subscription.manageButton')}
               </Button>
             </form>
           </div>
@@ -244,10 +254,12 @@ function ManageSubscription() {
 }
 
 function TeamMembersSkeleton() {
+  const { t } = useI18n();
+
   return (
     <Card className="mb-8 h-[140px]">
       <CardHeader>
-        <CardTitle>Team Members</CardTitle>
+        <CardTitle>{t('dashboard.members.cardTitle')}</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="animate-pulse space-y-4 mt-1">
@@ -273,19 +285,20 @@ function TeamMembers() {
     FormData
   >(removeTeamMember, {});
   const [roleState, roleAction, rolePending] = useActionState<ActionState, FormData>(updateTeamMemberRole, {});
+  const { t } = useI18n();
 
   const getUserDisplayName = (user: Pick<User, 'id' | 'name' | 'email'>) => {
-    return user.name || user.email || 'Unknown User';
+    return user.name || user.email || t('dashboard.members.unknownUser');
   };
 
   if (!teamData?.teamMembers?.length) {
     return (
       <Card className="mb-8">
         <CardHeader>
-          <CardTitle>Team Members</CardTitle>
+          <CardTitle>{t('dashboard.members.cardTitle')}</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-muted-foreground">No team members yet.</p>
+          <p className="text-muted-foreground">{t('dashboard.members.empty')}</p>
         </CardContent>
       </Card>
     );
@@ -294,7 +307,7 @@ function TeamMembers() {
   return (
     <Card className="mb-8">
       <CardHeader>
-        <CardTitle>Team Members</CardTitle>
+        <CardTitle>{t('dashboard.members.cardTitle')}</CardTitle>
       </CardHeader>
       <CardContent>
         <ul className="space-y-4">
@@ -343,11 +356,11 @@ function TeamMembers() {
                     disabled={!isOwner || rolePending}
                     className="border rounded px-2 py-1 text-sm"
                   >
-                    <option value="member">member</option>
-                    <option value="owner">owner</option>
+                    <option value="member">{t('dashboard.members.role.member')}</option>
+                    <option value="owner">{t('dashboard.members.role.owner')}</option>
                   </select>
                   <Button type="submit" size="sm" variant="outline" disabled={!isOwner || rolePending}>
-                    {rolePending ? 'Saving...' : 'Update'}
+                    {rolePending ? t('dashboard.members.updateLoading') : t('dashboard.members.updateButton')}
                   </Button>
                 </form>
                 {index > 1 ? (
@@ -365,7 +378,7 @@ function TeamMembers() {
                       size="sm"
                       disabled={isRemovePending || !isOwner}
                     >
-                      {isRemovePending ? 'Removing...' : 'Remove'}
+                      {isRemovePending ? t('dashboard.members.removeLoading') : t('dashboard.members.removeButton')}
                     </Button>
                   </form>
                 ) : null}
@@ -388,10 +401,12 @@ function TeamMembers() {
 }
 
 function InviteTeamMemberSkeleton() {
+  const { t } = useI18n();
+
   return (
     <Card className="h-[260px]">
       <CardHeader>
-        <CardTitle>Invite Team Member</CardTitle>
+        <CardTitle>{t('dashboard.invite.cardTitle')}</CardTitle>
       </CardHeader>
     </Card>
   );
@@ -404,6 +419,7 @@ function InviteTeamMember() {
     ActionState,
     FormData
   >(inviteTeamMember, {});
+  const { t } = useI18n();
 
   if (!isOwner) {
     return null;
@@ -412,25 +428,25 @@ function InviteTeamMember() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Invite Team Member</CardTitle>
+        <CardTitle>{t('dashboard.invite.cardTitle')}</CardTitle>
       </CardHeader>
       <CardContent>
         <form action={inviteAction} className="space-y-4">
           <div>
             <Label htmlFor="email" className="mb-2">
-              Email
+              {t('auth.field.email.label')}
             </Label>
             <Input
               id="email"
               name="email"
               type="email"
-              placeholder="Enter email"
+              placeholder={t('auth.field.email.placeholder')}
               required
               disabled={!isOwner}
             />
           </div>
           <div>
-            <Label>Role</Label>
+            <Label>{t('dashboard.invite.roleLabel')}</Label>
             <RadioGroup
               defaultValue="member"
               name="role"
@@ -439,11 +455,11 @@ function InviteTeamMember() {
             >
               <div className="flex items-center space-x-2 mt-2">
                 <RadioGroupItem value="member" id="member" />
-                <Label htmlFor="member">Member</Label>
+                <Label htmlFor="member">{t('dashboard.members.role.member')}</Label>
               </div>
               <div className="flex items-center space-x-2 mt-2">
                 <RadioGroupItem value="owner" id="owner" />
-                <Label htmlFor="owner">Owner</Label>
+                <Label htmlFor="owner">{t('dashboard.members.role.owner')}</Label>
               </div>
             </RadioGroup>
           </div>
@@ -461,12 +477,12 @@ function InviteTeamMember() {
             {isInvitePending ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Inviting...
+                {t('dashboard.invite.submitLoading')}
               </>
             ) : (
               <>
                 <PlusCircle className="mr-2 h-4 w-4" />
-                Invite Member
+                {t('dashboard.invite.submitButton')}
               </>
             )}
           </Button>
@@ -475,7 +491,7 @@ function InviteTeamMember() {
       {!isOwner && (
         <CardFooter>
           <p className="text-sm text-muted-foreground">
-            You must be a team owner to invite new members.
+            {t('dashboard.invite.ownerWarning')}
           </p>
         </CardFooter>
       )}
@@ -484,9 +500,14 @@ function InviteTeamMember() {
 }
 
 export default function SettingsPage() {
+  const { t } = useI18n();
+
   return (
     <section className="flex-1 p-4 lg:p-8">
-      <h1 className="text-lg lg:text-2xl font-medium mb-6">Team Settings</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-lg lg:text-2xl font-medium">{t('dashboard.settings.title')}</h1>
+        <LocaleSwitcher />
+      </div>
       <Suspense fallback={null}>
         <UserInvitations />
       </Suspense>
