@@ -34,6 +34,8 @@ export interface EquipmentWizardMediaState {
 
 export interface EquipmentWizardConnectionsState {
   targetNodeIds: string[];
+  upstreamTargetNodeIds: string[];
+  downstreamTargetNodeIds: string[];
 }
 
 export interface EquipmentWizardDialogProps {
@@ -72,6 +74,8 @@ export function EquipmentWizardDialog({ open, mode, siteId, onOpenChange, siteLa
 
   const [connectionsState, setConnectionsState] = useState<EquipmentWizardConnectionsState>({
     targetNodeIds: [],
+    upstreamTargetNodeIds: [],
+    downstreamTargetNodeIds: [],
   });
 
   const [initialConnectionTargets, setInitialConnectionTargets] = useState<string[]>([]);
@@ -131,7 +135,7 @@ export function EquipmentWizardDialog({ open, mode, siteId, onOpenChange, siteLa
         zoneId: null,
       });
       setGeoState({});
-      setConnectionsState({ targetNodeIds: [] });
+      setConnectionsState({ targetNodeIds: [], upstreamTargetNodeIds: [], downstreamTargetNodeIds: [] });
       setInitialConnectionTargets([]);
       setExistingConnections([]);
     }
@@ -161,13 +165,24 @@ export function EquipmentWizardDialog({ open, mode, siteId, onOpenChange, siteLa
 
         setExistingConnections(forNode);
 
-        const targets = forNode.map((connection) =>
-          connection.fromNodeId === node.id ? connection.toNodeId : connection.fromNodeId
-        );
+        const upstream: string[] = [];
+        const downstream: string[] = [];
+
+        for (const connection of forNode) {
+          if (connection.toNodeId === node.id) {
+            upstream.push(connection.fromNodeId);
+          } else if (connection.fromNodeId === node.id) {
+            downstream.push(connection.toNodeId);
+          }
+        }
+
+        const targets = Array.from(new Set<string>([...upstream, ...downstream]));
 
         setConnectionsState((prev) => ({
           ...prev,
           targetNodeIds: targets,
+          upstreamTargetNodeIds: upstream,
+          downstreamTargetNodeIds: downstream,
         }));
         setInitialConnectionTargets(targets);
       } catch (error) {
@@ -269,14 +284,28 @@ export function EquipmentWizardDialog({ open, mode, siteId, onOpenChange, siteLa
         );
 
         if (toCreate.length > 0) {
+          const upstreamTargets = connectionsState.upstreamTargetNodeIds ?? [];
+          const downstreamTargets = connectionsState.downstreamTargetNodeIds ?? [];
+
           for (const targetId of toCreate) {
+            let fromNodeId = node.id;
+            let toNodeId = targetId;
+
+            if (upstreamTargets.includes(targetId)) {
+              fromNodeId = targetId;
+              toNodeId = node.id;
+            } else if (downstreamTargets.includes(targetId)) {
+              fromNodeId = node.id;
+              toNodeId = targetId;
+            }
+
             const connectionResponse = await fetch("/api/synoptics/connections", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 siteId,
-                fromNodeId: node.id,
-                toNodeId: targetId,
+                fromNodeId,
+                toNodeId,
                 gasType,
               }),
             });
@@ -394,8 +423,32 @@ export function EquipmentWizardDialog({ open, mode, siteId, onOpenChange, siteLa
         }
       }
 
-      if (connectionsState.targetNodeIds.length > 0) {
-        for (const targetId of connectionsState.targetNodeIds) {
+      const upstreamTargets = Array.from(
+        new Set<string>(connectionsState.upstreamTargetNodeIds ?? [])
+      );
+      const downstreamTargets = Array.from(
+        new Set<string>(connectionsState.downstreamTargetNodeIds ?? [])
+      );
+
+      if (upstreamTargets.length > 0 || downstreamTargets.length > 0) {
+        for (const targetId of upstreamTargets) {
+          const connectionResponse = await fetch("/api/synoptics/connections", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              siteId,
+              fromNodeId: targetId,
+              toNodeId: createdNode.id,
+              gasType,
+            }),
+          });
+
+          if (!connectionResponse.ok) {
+            throw new Error("Échec de la création d'une connexion");
+          }
+        }
+
+        for (const targetId of downstreamTargets) {
           const connectionResponse = await fetch("/api/synoptics/connections", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -423,7 +476,7 @@ export function EquipmentWizardDialog({ open, mode, siteId, onOpenChange, siteLa
       });
       setMediaState({ newFiles: [] });
       setGeoState({});
-      setConnectionsState({ targetNodeIds: [] });
+      setConnectionsState({ targetNodeIds: [], upstreamTargetNodeIds: [], downstreamTargetNodeIds: [] });
 
       onOpenChange(false);
       if (onCompleted) {
@@ -490,6 +543,7 @@ export function EquipmentWizardDialog({ open, mode, siteId, onOpenChange, siteLa
               value={connectionsState}
               onChange={setConnectionsState}
               siteId={siteId}
+              gasType={basicInfo.gasType ?? undefined}
             />
           </TabsContent>
         </Tabs>
