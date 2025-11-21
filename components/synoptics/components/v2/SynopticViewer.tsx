@@ -17,14 +17,30 @@ import {
 import '@xyflow/react/dist/style.css';
 import { SourceNode } from './nodes/source-node';
 import { ValveNode } from './nodes/valve-node';
+import { ValveNodeEnhanced } from './nodes/valve-node-enhanced';
+import OrthogonalEdge from './edges/OrthogonalEdge';
 import { FittingNode } from './nodes/fitting-node';
 import { AnnotationNode } from './nodes/annotation-node';
+import { getGasLineColor } from './hierarchy/gas-config';
 import { NodeDetailsPanel } from './NodeDetailsPanel';
 import { SynopticLegend } from './SynopticLegend';
 import { useDownstreamNodes } from './hooks/useDownstreamNodes';
 import { Annotation } from './AnnotationLayer';
 
 type EdgeToolMode = 'select' | 'cut';
+
+// Node types configuration
+const nodeTypes = {
+  source: SourceNode,
+  valve: ValveNodeEnhanced, // Use enhanced valve node
+  fitting: FittingNode,
+  annotation: AnnotationNode,
+} as const;
+
+// Edge types configuration
+const edgeTypes = {
+  orthogonal: OrthogonalEdge,
+} as const;
 
 interface SynopticViewerProps {
   nodes: any[];
@@ -46,21 +62,6 @@ interface SynopticViewerProps {
   annotations?: Annotation[];
   showAnnotations?: boolean;
   showLocationBadges?: boolean;
-}
-
-const GAS_COLORS = {
-  oxygen: '#EF4444',
-  medical_air: '#9333EA',
-  vacuum: '#10B981',
-  nitrogen: '#3B82F6',
-  nitrous_oxide: '#F59E0B',
-  carbon_dioxide: '#6B7280',
-  default: '#000000',
-};
-
-function getGasColor(gasType: string): string {
-  const normalized = gasType.toLowerCase().replace(/\s+/g, '_');
-  return GAS_COLORS[normalized as keyof typeof GAS_COLORS] || GAS_COLORS.default;
 }
 
 export function SynopticViewer({
@@ -169,10 +170,10 @@ export function SynopticViewer({
         id: conn.id,
         source: conn.fromNodeId,
         target: conn.toNodeId,
-        type: 'smoothstep',
+        type: 'orthogonal',
         animated: isHighlightedEdge, // Animation for highlighted edges
         style: {
-          stroke: getGasColor(conn.gasType),
+          stroke: getGasLineColor(conn.gasType),
           strokeWidth,
           opacity,
           cursor: cutModeActive ? 'crosshair' : 'pointer',
@@ -271,9 +272,9 @@ export function SynopticViewer({
           target: params.target!,
           sourceHandle: params.sourceHandle ?? null,
           targetHandle: params.targetHandle ?? null,
-          type: 'smoothstep',
+          type: 'orthogonal', // Use orthogonal edges
           style: {
-            stroke: getGasColor(gasType),
+            stroke: getGasLineColor(gasType),
             strokeWidth: 3,
             opacity: 0.9,
           },
@@ -432,20 +433,6 @@ export function SynopticViewer({
       setIsDraggingOver(false);
     }
   }, []);
-
-  const nodeTypes = useMemo(
-    () => ({
-      source: SourceNode,
-      valve: ValveNode,
-      fitting: FittingNode,
-      annotation: AnnotationNode,
-    }),
-    []
-  );
-
-  const isEmpty = nodes.length === 0;
-
-  // Calculate gas types and node types for legend
   const gasTypes = useMemo(() => {
     const types = new Set<string>();
     initialConnections.forEach((conn) => {
@@ -454,8 +441,8 @@ export function SynopticViewer({
       }
     });
     return types;
-  }, [initialConnections]);
-
+  }, [initialNodes]);
+  
   const nodeTypeFlags = useMemo(() => {
     const flags = {
       hasSource: false,
@@ -469,6 +456,8 @@ export function SynopticViewer({
     });
     return flags;
   }, [initialNodes]);
+
+  const isEmpty = nodes?.length === 0;
 
   return (
     <div className="w-full h-full flex">
@@ -507,10 +496,11 @@ export function SynopticViewer({
         defaultEdgeOptions={{
           animated: false,
           style: { strokeWidth: 3 },
-          type: 'smoothstep',
+          type: 'orthogonal',
         }}
         connectionLineStyle={{ strokeWidth: 3 }}
-        connectionLineType={'smoothstep' as any}
+        connectionLineType={'straight' as any}
+        edgeTypes={edgeTypes}
         deleteKeyCode={editable ? 'Delete' : null}
         proOptions={{ hideAttribution: true }}
       >

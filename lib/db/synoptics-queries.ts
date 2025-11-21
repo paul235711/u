@@ -606,8 +606,28 @@ export async function getSiteWithHierarchy(siteId: string) {
 
 // Helper function to get node with element data
 export async function getNodeWithElementData(nodeId: string) {
-  const node = await getNodeById(nodeId);
-  if (!node) return null;
+  // Load node together with its location data in a single query
+  const rows = await db
+    .select({
+      node: nodes,
+      building: buildings,
+      floor: floors,
+      zone: zones,
+    })
+    .from(nodes)
+    .leftJoin(buildings, eq(nodes.buildingId, buildings.id))
+    .leftJoin(floors, eq(nodes.floorId, floors.id))
+    .leftJoin(zones, eq(nodes.zoneId, zones.id))
+    .where(eq(nodes.id, nodeId))
+    .limit(1);
+
+  const row = rows[0];
+  if (!row) return null;
+
+  const node = row.node;
+  const buildingData = row.building;
+  const floorData = row.floor;
+  const zoneData = row.zone;
 
   // Fetch the actual element data based on node type
   let elementData = null;
@@ -624,6 +644,10 @@ export async function getNodeWithElementData(nodeId: string) {
     ...elementData, // Merge element data (name, gasType, etc.)
     id: node.id, // Preserve the actual node ID (don't let element ID overwrite it)
     elementId: node.elementId, // Keep element ID separate
+    buildingName: buildingData?.name,
+    floorName: floorData?.name,
+    floorNumber: floorData?.floorNumber,
+    zoneName: zoneData?.name,
   };
 }
 

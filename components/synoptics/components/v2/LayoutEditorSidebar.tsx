@@ -6,9 +6,8 @@
 'use client';
 
 import { NetworkStatsPanel } from './NetworkStatsPanel';
-import { NetworkFilterPanel, createDefaultFilters } from './NetworkFilterPanel';
+import { NetworkFilterPanel } from './NetworkFilterPanel';
 import { useUIStore } from '../../stores/ui-store';
-import { useState } from 'react';
 
 interface LayoutEditorSidebarProps {
   layout: any;
@@ -29,10 +28,10 @@ export function LayoutEditorSidebar({
   
   const showStats = useUIStore((state) => state.panels.stats);
   const showFilters = useUIStore((state) => state.panels.filters);
+  const filters = useUIStore((state) => state.filters);
+  const setFilters = useUIStore((state) => state.setFilters);
+  const resetFilters = useUIStore((state) => state.resetFilters);
   
-  // Local state for filters (could be moved to Zustand if needed)
-  const [filters, setFilters] = useState(createDefaultFilters());
-
   return (
     <>
       {/* Properties now handled by EquipmentBankEnhanced */}
@@ -55,7 +54,7 @@ export function LayoutEditorSidebar({
         <NetworkFilterPanel
           filters={filters}
           onChange={setFilters}
-          onReset={() => setFilters(createDefaultFilters())}
+          onReset={resetFilters}
           nodes={layout.nodes || []}
           connections={layout.connections || []}
           siteId={siteId}

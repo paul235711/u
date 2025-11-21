@@ -28,14 +28,14 @@ export const GAS_CONFIG: Record<GasType, {
   vacuum: {
     label: 'Vacuum',
     shortLabel: 'VAC',
-    bgColor: 'bg-green-500',
+    bgColor: 'bg-emerald-400',
     textColor: 'text-white',
     description: 'Medical suction system',
   },
   nitrous_oxide: {
     label: 'Nitrous Oxide',
     shortLabel: 'N₂O',
-    bgColor: 'bg-orange-500',
+    bgColor: 'bg-teal-400',
     textColor: 'text-white',
     description: 'Anesthetic gas',
   },
@@ -49,11 +49,34 @@ export const GAS_CONFIG: Record<GasType, {
   carbon_dioxide: {
     label: 'Carbon Dioxide',
     shortLabel: 'CO₂',
-    bgColor: 'bg-gray-600',
+    bgColor: 'bg-amber-900',
     textColor: 'text-white',
     description: 'Surgical gas',
   },
 };
+
+export const GAS_LINE_COLORS: Record<string, string> = {
+  oxygen: '#ef4444', // OXYGENE → Red
+  medical_air: '#9333ea', // AIR → Purple
+  vacuum: '#6ee7b7', // VACCUM → Light green
+  nitrous_oxide: '#2dd4bf', // PROTOXYDE → Light turquoise
+  nitrogen: '#1d4ed8',
+  carbon_dioxide: '#4b2e2b', // DIOXIDE → Dark brown
+  co2: '#4b2e2b',
+  compressed_air: '#9333ea',
+  air_med_8b: '#1d4ed8', // AIR MED. 8b → Dark blue
+  air_sega: '#38bdf8', // AIR SEGA → Light blue
+  rejection_sega: '#9ca3af', // rejection SEGA → Grey line
+  rejection_prod: '#4b5563', // rejection PROD. → Dark grey line
+  vacuum_prod: '#1e40af', // vaccum. PROD. → Bright/deep blue
+  default: '#000000',
+};
+
+export function getGasLineColor(gasType: string): string {
+  if (!gasType) return GAS_LINE_COLORS.default;
+  const normalized = gasType.toLowerCase().replace(/\s+/g, '_');
+  return GAS_LINE_COLORS[normalized] || GAS_LINE_COLORS.default;
+}
 
 /**
  * Primary gases that should always be shown in indicators

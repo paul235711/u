@@ -10,6 +10,7 @@ import { AddressSearch } from '@/components/mapbox/address-search';
 import { Loader2 } from 'lucide-react';
 import { parseApiError, validateName, validateLatitude, validateLongitude } from '../shared/form-utils';
 import { useToast, ToastContainer } from '../shared/use-toast';
+import { useI18n } from '@/app/i18n-provider';
 
 interface SiteFormProps {
   organizationId: string;
@@ -24,6 +25,7 @@ interface SiteFormProps {
 
 export function SiteForm({ organizationId, initialData, siteId }: SiteFormProps) {
   const router = useRouter();
+  const { t } = useI18n();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -44,8 +46,8 @@ export function SiteForm({ organizationId, initialData, siteId }: SiteFormProps)
 
     // Client-side validation
     const errors: Record<string, string> = {};
-    
-    const nameError = validateName(formData.name, 'Site name');
+
+    const nameError = validateName(formData.name, t('synoptics.siteForm.name.label'));
     if (nameError) errors.name = nameError;
 
     if (formData.latitude) {
@@ -91,7 +93,9 @@ export function SiteForm({ organizationId, initialData, siteId }: SiteFormProps)
       
       // Show success message
       showToast(
-        siteId ? 'Site updated successfully' : 'Site created successfully',
+        siteId
+          ? t('synoptics.siteForm.toast.updateSuccess')
+          : t('synoptics.siteForm.toast.createSuccess'),
         'success'
       );
 
@@ -117,7 +121,7 @@ export function SiteForm({ organizationId, initialData, siteId }: SiteFormProps)
       )}
 
       <div>
-        <Label htmlFor="name">Site Name *</Label>
+        <Label htmlFor="name">{t('synoptics.siteForm.name.label')}</Label>
         <Input
           id="name"
           type="text"
@@ -129,7 +133,7 @@ export function SiteForm({ organizationId, initialData, siteId }: SiteFormProps)
               setFieldErrors((prev) => ({ ...prev, name: '' }));
             }
           }}
-          placeholder="e.g., Central Hospital"
+          placeholder={t('synoptics.siteForm.name.placeholder')}
           className="mt-1"
           aria-invalid={!!fieldErrors.name}
           aria-describedby={fieldErrors.name ? 'name-error' : undefined}
@@ -142,9 +146,9 @@ export function SiteForm({ organizationId, initialData, siteId }: SiteFormProps)
       </div>
 
     <div>
-      <Label>Address</Label>
+      <Label>{t('synoptics.siteForm.address.label')}</Label>
       <p className="text-xs text-gray-500 mt-1 mb-2">
-        Search for an address to auto-fill coordinates
+        {t('synoptics.siteForm.address.help')}
       </p>
       <div className="mt-1">
         <AddressSearch
@@ -163,7 +167,7 @@ export function SiteForm({ organizationId, initialData, siteId }: SiteFormProps)
 
     <div className="grid grid-cols-2 gap-4">
       <div>
-        <Label htmlFor="latitude">Latitude (auto-filled)</Label>
+        <Label htmlFor="latitude">{t('synoptics.siteForm.latitude.label')}</Label>
         <Input
           id="latitude"
           type="text"
@@ -179,7 +183,7 @@ export function SiteForm({ organizationId, initialData, siteId }: SiteFormProps)
         )}
       </div>
       <div>
-        <Label htmlFor="longitude">Longitude (auto-filled)</Label>
+        <Label htmlFor="longitude">{t('synoptics.siteForm.longitude.label')}</Label>
         <Input
           id="longitude"
           type="text"
@@ -203,11 +207,15 @@ export function SiteForm({ organizationId, initialData, siteId }: SiteFormProps)
           onClick={() => router.back()}
           disabled={isSubmitting}
         >
-          Cancel
+          {t('common.cancel')}
         </Button>
         <Button type="submit" disabled={isSubmitting}>
           {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          {isSubmitting ? 'Saving...' : siteId ? 'Update Site' : 'Create Site'}
+          {isSubmitting
+            ? t('synoptics.siteForm.submit.saving')
+            : siteId
+              ? t('synoptics.siteForm.submit.update')
+              : t('synoptics.siteForm.submit.create')}
         </Button>
       </div>
     </form>

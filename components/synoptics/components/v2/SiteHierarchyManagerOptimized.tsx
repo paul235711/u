@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { 
   Building2, Plus, Layers, Box, ChevronDown, ChevronRight, 
-  Loader2, Edit, Trash2
+  Loader2, Edit, Trash2, FileDown
 } from 'lucide-react';
 import { useHierarchyStore } from '../../stores/hierarchy-store';
 import { Badge } from '@/components/ui/badge';
@@ -221,6 +221,17 @@ export function SiteHierarchyManagerOptimized({ siteData, siteId, organizationId
     );
   }
 
+  const handleExportEmergencyPlan = () => {
+    try {
+      const url = `/api/synoptics/sites/${siteId}/emergency-plan`;
+      if (typeof window !== 'undefined') {
+        window.open(url, '_blank');
+      }
+    } catch (error) {
+      console.error('Failed to export emergency plan', error);
+    }
+  };
+
   const buildingCount = hierarchyData?.buildings?.length || 0;
   const buildingLabel =
     buildingCount === 1
@@ -262,6 +273,15 @@ export function SiteHierarchyManagerOptimized({ siteData, siteId, organizationId
               {isEditMode
                 ? t('synoptics.hierarchy.header.done')
                 : t('synoptics.hierarchy.header.edit')}
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportEmergencyPlan}
+            >
+              <FileDown className="h-4 w-4 mr-2" />
+              {t('synoptics.hierarchy.header.exportEmergencyPlan')}
             </Button>
             
             {isEditMode && (

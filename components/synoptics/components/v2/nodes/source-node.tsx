@@ -4,23 +4,10 @@ import { memo } from 'react';
 import { Handle, Position, NodeProps } from '@xyflow/react';
 import { Cylinder } from 'lucide-react';
 import { NodeLocationBadge } from '../NodeLocationBadge';
-
-const GAS_COLORS: Record<string, { bg: string; border: string }> = {
-  oxygen: { bg: 'bg-red-500', border: 'border-red-700' },
-  medical_air: { bg: 'bg-purple-600', border: 'border-purple-800' },
-  vacuum: { bg: 'bg-green-500', border: 'border-green-700' },
-  nitrogen: { bg: 'bg-blue-500', border: 'border-blue-700' },
-  nitrous_oxide: { bg: 'bg-orange-500', border: 'border-orange-700' },
-  carbon_dioxide: { bg: 'bg-gray-600', border: 'border-gray-800' },
-};
-
-function getGasColor(gasType: string) {
-  const normalized = gasType?.toLowerCase().replace(/\s+/g, '_') || 'oxygen';
-  return GAS_COLORS[normalized] || GAS_COLORS.oxygen;
-}
+import { getGasLineColor } from '../hierarchy/gas-config';
 
 export const SourceNode = memo(({ data }: NodeProps) => {
-  const colors = getGasColor(data.gasType as string);
+  const gasColor = getGasLineColor(data.gasType as string);
   const showHandles = data.editable !== false; // Show handles only in editable mode
   const isSelected = data.isSelected === true;
   const isDownstream = data.isDownstream === true;
@@ -58,8 +45,8 @@ export const SourceNode = memo(({ data }: NodeProps) => {
   return (
     <div className="relative inline-block">
       <div 
-        className={`px-4 py-3 rounded-lg ${colors.bg} border-2 ${colors.border} min-w-[120px] ${highlightClass} transition-all duration-150`}
-        style={{ transform: `rotate(${rotation}deg)` }}
+        className={`px-4 py-3 rounded-lg border-2 min-w-[120px] ${highlightClass} transition-all duration-150`}
+        style={{ transform: `rotate(${rotation}deg)`, backgroundColor: gasColor, borderColor: gasColor }}
       >
         <Handle type="source" position={handlePosition} className="w-3 h-3" style={{ opacity: showHandles ? 1 : 0 }} />
         

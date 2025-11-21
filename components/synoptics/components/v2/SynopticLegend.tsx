@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ChevronUp, ChevronDown, Cylinder } from 'lucide-react';
 import ValveIcon from '../../icons/ValveIcon';
+import { getGasConfig, getGasLineColor } from './hierarchy/gas-config';
 
 interface SynopticLegendProps {
   gasTypes: Set<string>;
@@ -11,24 +12,6 @@ interface SynopticLegendProps {
   hasValve: boolean;
   hasFitting: boolean;
 }
-
-const GAS_COLORS: Record<string, string> = {
-  oxygen: '#EF4444',
-  medical_air: '#9333EA',
-  vacuum: '#10B981',
-  nitrogen: '#3B82F6',
-  nitrous_oxide: '#F59E0B',
-  carbon_dioxide: '#6B7280',
-};
-
-const GAS_LABELS: Record<string, string> = {
-  oxygen: 'Oxygen',
-  medical_air: 'Medical Air',
-  vacuum: 'Vacuum',
-  nitrogen: 'Nitrogen',
-  nitrous_oxide: 'Nitrous Oxide',
-  carbon_dioxide: 'Carbon Dioxide',
-};
 
 export function SynopticLegend({ gasTypes, hasSource, hasValve, hasFitting }: SynopticLegendProps) {
   const [isExpanded, setIsExpanded] = useState(true);
@@ -59,9 +42,9 @@ export function SynopticLegend({ gasTypes, hasSource, hasValve, hasFitting }: Sy
                 <div className="text-xs font-semibold text-gray-500 uppercase mb-2">Gases</div>
                 <div className="space-y-1.5">
                   {Array.from(gasTypes).map((gasType) => {
-                    const normalized = gasType.toLowerCase().replace(/\s+/g, '_');
-                    const color = GAS_COLORS[normalized] || '#000000';
-                    const label = GAS_LABELS[normalized] || gasType;
+                    const color = getGasLineColor(gasType);
+                    const config = getGasConfig(gasType);
+                    const label = config.label;
                     return (
                       <div key={gasType} className="flex items-center gap-2">
                         <div

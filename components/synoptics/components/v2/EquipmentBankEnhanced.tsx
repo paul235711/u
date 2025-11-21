@@ -287,6 +287,17 @@ export function EquipmentBankEnhanced({
   const disableActions = rotateMutation.isPending;
   const disableRemove = removeFromLayoutMutation.isPending;
 
+  const handleImportAllToLayout = () => {
+    if (!availableNodes.length) return;
+
+    const maxToImport = 100;
+    const nodesToImport = availableNodes.slice(0, maxToImport);
+
+    nodesToImport.forEach((node) => {
+      onAddToLayout(node.id);
+    });
+  };
+
   return (
     <div className="w-80 bg-white border-l shadow-lg h-full flex flex-col">
       <EquipmentBankHeader onClose={onClose} />
@@ -332,7 +343,10 @@ export function EquipmentBankEnhanced({
         isSearchActive={!!searchTerm}
       />
 
-      <EquipmentFooter availableCount={availableNodes.length} />
+      <EquipmentFooter
+        availableCount={availableNodes.length}
+        onImportAll={handleImportAllToLayout}
+      />
 
       <EquipmentEditDialog
         open={showEditDialog}

@@ -4,45 +4,7 @@ import { Building2, MapPin, Layers } from 'lucide-react';
 import ValveIcon from '../../icons/ValveIcon';
 import { Cylinder } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-const GAS_COLORS: Record<string, { bg: string; border: string; text: string; badge: string }> = {
-  oxygen: { 
-    bg: 'bg-red-50', 
-    border: 'border-red-500', 
-    text: 'text-red-700',
-    badge: 'bg-red-500'
-  },
-  medical_air: { 
-    bg: 'bg-purple-50', 
-    border: 'border-purple-600', 
-    text: 'text-purple-700',
-    badge: 'bg-purple-600'
-  },
-  vacuum: { 
-    bg: 'bg-green-50', 
-    border: 'border-green-500', 
-    text: 'text-green-700',
-    badge: 'bg-green-500'
-  },
-  nitrogen: { 
-    bg: 'bg-blue-50', 
-    border: 'border-blue-500', 
-    text: 'text-blue-700',
-    badge: 'bg-blue-500'
-  },
-  nitrous_oxide: { 
-    bg: 'bg-orange-50', 
-    border: 'border-orange-500', 
-    text: 'text-orange-700',
-    badge: 'bg-orange-500'
-  },
-  carbon_dioxide: { 
-    bg: 'bg-gray-50', 
-    border: 'border-gray-600', 
-    text: 'text-gray-700',
-    badge: 'bg-gray-600'
-  },
-};
+import { getGasConfig } from './hierarchy/gas-config';
 
 const STATUS_COLORS: Record<string, { badge: string; dot: string }> = {
   open: { badge: 'bg-emerald-100 text-emerald-700', dot: 'bg-emerald-500' },
@@ -53,21 +15,19 @@ const STATUS_COLORS: Record<string, { badge: string; dot: string }> = {
 };
 
 function getGasColor(gasType: string) {
-  const normalized = gasType?.toLowerCase().replace(/\s+/g, '_') || 'oxygen';
-  return GAS_COLORS[normalized] || GAS_COLORS.oxygen;
+  const config = getGasConfig(gasType);
+  const borderClass = config.bgColor.replace('bg-', 'border-');
+  return {
+    bg: 'bg-white',
+    border: borderClass,
+    text: config.textColor,
+    badge: config.bgColor,
+  };
 }
 
 function formatGasType(gasType: string): string {
-  const gasLabels: Record<string, string> = {
-    oxygen: 'O₂',
-    medical_air: 'Air',
-    vacuum: 'Vac',
-    nitrogen: 'N₂',
-    nitrous_oxide: 'N₂O',
-    carbon_dioxide: 'CO₂',
-  };
-  const normalized = gasType?.toLowerCase().replace(/\s+/g, '_');
-  return gasLabels[normalized] || gasType;
+  const config = getGasConfig(gasType);
+  return config.shortLabel || config.label || gasType;
 }
 
 function humanise(text: string) {
