@@ -1,12 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from 'react';
+import { createContext, type ReactNode, useContext, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  EquipmentViewSwitcher,
   EquipmentFilters,
   EquipmentMapView,
-  EquipmentGridView,
   EquipmentListView,
 } from './equipment-map';
 import { EquipmentDeleteDialog } from './EquipmentDeleteDialog';
@@ -16,8 +14,6 @@ import { useDownstreamNodes } from './hooks/useDownstreamNodes';
 import { EquipmentWizardDialog } from './equipment-wizard/EquipmentWizardDialog';
 
 const DEFAULT_CENTER: [number, number] = [2.3522, 48.8566];
-
-type ViewMode = 'map' | 'grid' | 'list';
 
 interface FloorSummary {
   id: string;
@@ -84,6 +80,51 @@ export interface EquipmentFeature {
   zoneId: string | null;
 }
 
+interface SiteEquipmentState {
+  isLoading: boolean;
+  isError: boolean;
+  mapReady: boolean;
+  setMapReady: (ready: boolean) => void;
+  // Filters
+  selectedTypes: string[];
+  selectedBuildingId: string;
+  selectedFloorId: string;
+  selectedGasTypes: string[];
+  toggleType: (type: string) => void;
+  toggleGasType: (gasType: string) => void;
+  handleBuildingChange: (id: string) => void;
+  setSelectedFloorId: (id: string) => void;
+  resetFilters: () => void;
+  // Data
+  nodes: RawNode[];
+  connections: Connection[];
+  equipment: EquipmentFeature[];
+  filteredEquipment: EquipmentFeature[];
+  equipmentWithCoords: EquipmentFeature[];
+  hasEquipment: boolean;
+  hierarchyData: any;
+  nodePositions: Record<string, any[]>;
+  layouts: any[];
+  buildingMap: Record<string, BuildingSummary>;
+  floorsForSelectedBuilding: FloorSummary[];
+  featureCollection: GeoJSON.FeatureCollection;
+  mapCenter: [number, number];
+  buildings: BuildingSummary[];
+  siteId: string;
+  // Selection & dialogs
+  selectedEquipment: EquipmentFeature | null;
+  setSelectedEquipment: (item: EquipmentFeature | null) => void;
+  showEditDialog: boolean;
+  setShowEditDialog: (open: boolean) => void;
+  isCreateOpen: boolean;
+  setIsCreateOpen: (open: boolean) => void;
+  deletingNodeIds: string[];
+  setDeletingNodeIds: (ids: string[]) => void;
+  handleEquipmentClick: (item: EquipmentFeature) => void;
+  handleDeleteFromList: (id: string) => void;
+  handleEditSuccess: () => void;
+}
+
 // Utility functions
 function toNumber(value: unknown): number | undefined {
   if (value === undefined || value === null) return undefined;
@@ -120,22 +161,17 @@ function humanise(text: string): string {
     .replace(/\b\w/g, (match) => match.toUpperCase());
 }
 
-/**
- * Comprehensive site equipment map with multiple view modes (Map, Grid, List)
- * Displays valves, sources, and fittings with advanced filtering and editing capabilities
- */
-export function SiteEquipmentMap({
+function useSiteEquipmentState({
   siteId,
   siteName,
   siteLatitude,
   siteLongitude,
   buildings = [],
-}: SiteEquipmentMapProps) {
+}: SiteEquipmentMapProps): SiteEquipmentState {
   const queryClient = useQueryClient();
 
   // View state
   const [mapReady, setMapReady] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
 
   // Filter state
   const [selectedTypes, setSelectedTypes] = useState<string[]>(['valve', 'source']);
@@ -270,7 +306,6 @@ export function SiteEquipmentMap({
     enabled: !!siteId,
   });
 
-
   // Build building lookup map
   const buildingMap = useMemo(() => {
     const map: Record<string, BuildingSummary> = {};
@@ -388,7 +423,7 @@ export function SiteEquipmentMap({
   };
 
   // Equipment interaction handlers
-  const handleEquipmentClick = (item: any) => {
+  const handleEquipmentClick = (item: EquipmentFeature) => {
     setSelectedEquipment(item);
     setShowEditDialog(true);
   };
@@ -406,120 +441,92 @@ export function SiteEquipmentMap({
   const hasEquipment = equipment.length > 0;
   const equipmentWithCoords = equipment.filter((e) => e.coordinates !== null);
 
-  // Loading state
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-blue-600" />
-      </div>
-    );
-  }
+  return {
+    isLoading,
+    isError,
+    mapReady,
+    setMapReady,
+    selectedTypes,
+    selectedBuildingId,
+    selectedFloorId,
+    selectedGasTypes,
+    toggleType,
+    toggleGasType,
+    handleBuildingChange,
+    setSelectedFloorId,
+    resetFilters,
+    nodes,
+    connections,
+    equipment,
+    filteredEquipment,
+    equipmentWithCoords,
+    hasEquipment,
+    hierarchyData,
+    nodePositions,
+    layouts,
+    buildingMap,
+    floorsForSelectedBuilding,
+    featureCollection,
+    mapCenter,
+    buildings,
+    siteId,
+    selectedEquipment,
+    setSelectedEquipment,
+    showEditDialog,
+    setShowEditDialog,
+    isCreateOpen,
+    setIsCreateOpen,
+    deletingNodeIds,
+    setDeletingNodeIds,
+    handleEquipmentClick,
+    handleDeleteFromList,
+    handleEditSuccess,
+  };
+}
 
-  // Error state
-  if (isError) {
-    return (
-      <div className="rounded-xl border-2 border-dashed border-red-200 bg-red-50 px-6 py-20 text-center">
-        <p className="text-sm text-red-600">Failed to load equipment data</p>
-      </div>
-    );
+const SiteEquipmentContext = createContext<SiteEquipmentState | null>(null);
+
+interface SiteEquipmentProviderProps extends SiteEquipmentMapProps {
+  children: ReactNode;
+}
+
+export function SiteEquipmentProvider({ children, ...props }: SiteEquipmentProviderProps) {
+  const state = useSiteEquipmentState(props);
+  return <SiteEquipmentContext.Provider value={state}>{children}</SiteEquipmentContext.Provider>;
+}
+
+export function useSiteEquipment(): SiteEquipmentState {
+  const ctx = useContext(SiteEquipmentContext);
+  if (!ctx) {
+    throw new Error('useSiteEquipment must be used within a SiteEquipmentProvider');
   }
+  return ctx;
+}
+
+export function SiteEquipmentDialogs({
+  siteId,
+  siteLatitude,
+  siteLongitude,
+}: {
+  siteId: string;
+  siteLatitude?: number;
+  siteLongitude?: number;
+}) {
+  const queryClient = useQueryClient();
+  const {
+    selectedEquipment,
+    showEditDialog,
+    setShowEditDialog,
+    isCreateOpen,
+    setIsCreateOpen,
+    deletingNodeIds,
+    setDeletingNodeIds,
+    nodes,
+    handleEditSuccess,
+  } = useSiteEquipment();
 
   return (
-    <div className="relative w-full space-y-4">
-      {/* View Switcher */}
-      <EquipmentViewSwitcher
-        viewMode={viewMode}
-        onViewModeChange={setViewMode}
-        totalCount={equipment.length}
-        withCoordsCount={equipmentWithCoords.length}
-      />
-
-      {/* Filters Panel */}
-      <EquipmentFilters
-        selectedTypes={selectedTypes}
-        onTypeToggle={toggleType}
-        selectedBuildingId={selectedBuildingId}
-        onBuildingChange={handleBuildingChange}
-        selectedFloorId={selectedFloorId}
-        onFloorChange={setSelectedFloorId}
-        selectedGasTypes={selectedGasTypes}
-        onGasTypeToggle={toggleGasType}
-        buildings={buildings}
-        floorsForSelectedBuilding={floorsForSelectedBuilding}
-        filteredCount={filteredEquipment.length}
-        totalCount={equipment.length}
-        onReset={resetFilters}
-      />
-
-      {/* Content Area - Map View */}
-      {viewMode === 'map' && (
-        <div className="flex w-full">
-          <div className="flex-1 min-w-0">
-            <EquipmentMapView
-              isLoading={isLoading}
-              isError={isError}
-              featureCollection={featureCollection}
-              equipmentWithCoordsCount={equipmentWithCoords.length}
-              mapCenter={mapCenter}
-              onMapReady={setMapReady}
-              mapReady={mapReady}
-              focusedEquipmentId={selectedEquipment?.id ?? null}
-              onFeatureClick={(id: string) => {
-                const found = equipment.find((e) => e.id === id);
-                if (found) {
-                  setSelectedEquipment(found);
-                  setShowEditDialog(false);
-                }
-              }}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Content Area - Grid View */}
-      {viewMode === 'grid' && (
-        <EquipmentGridView
-          isLoading={isLoading}
-          equipment={filteredEquipment}
-          hasEquipment={hasEquipment}
-          buildingMap={buildingMap}
-          onEquipmentClick={handleEquipmentClick}
-        />
-      )}
-
-      {viewMode === 'list' && (
-        <div className="flex items-center justify-between text-sm text-gray-600">
-          <div>
-            {filteredEquipment.length} équipements
-            {filteredEquipment.length !== equipment.length && (
-              <span className="text-gray-400"> (sur {equipment.length})</span>
-            )}
-          </div>
-          <Button
-            variant="outline"
-            onClick={() => setIsCreateOpen(true)}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Equipment
-          </Button>
-        </div>
-      )}
-
-      {/* Content Area - List View */}
-      {viewMode === 'list' && (
-        <EquipmentListView
-          isLoading={isLoading}
-          equipment={filteredEquipment}
-          hasEquipment={hasEquipment}
-          layouts={layouts}
-          nodePositions={nodePositions}
-          siteId={siteId}
-          onDelete={handleDeleteFromList}
-          onEquipmentClick={handleEquipmentClick}
-        />
-      )}
-
-      {/* Equipment Wizard - Edit */}
+    <>
       {selectedEquipment && (
         <EquipmentWizardDialog
           open={showEditDialog}
@@ -533,7 +540,6 @@ export function SiteEquipmentMap({
         />
       )}
 
-      {/* Equipment Wizard - Create */}
       <EquipmentWizardDialog
         open={isCreateOpen}
         mode="create"
@@ -560,6 +566,212 @@ export function SiteEquipmentMap({
           setDeletingNodeIds([]);
         }}
       />
+    </>
+  );
+}
+
+export function SiteEquipmentMapTabContent() {
+  const {
+    isLoading,
+    isError,
+    mapReady,
+    setMapReady,
+    selectedTypes,
+    selectedBuildingId,
+    selectedFloorId,
+    selectedGasTypes,
+    toggleType,
+    toggleGasType,
+    handleBuildingChange,
+    setSelectedFloorId,
+    resetFilters,
+    buildings,
+    floorsForSelectedBuilding,
+    filteredEquipment,
+    equipment,
+    equipmentWithCoords,
+    featureCollection,
+    mapCenter,
+    selectedEquipment,
+    setSelectedEquipment,
+  } = useSiteEquipment();
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-blue-600" />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="rounded-xl border-2 border-dashed border-red-200 bg-red-50 px-6 py-20 text-center">
+        <p className="text-sm text-red-600">Failed to load equipment data</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative w-full space-y-4">
+      <EquipmentFilters
+        selectedTypes={selectedTypes}
+        onTypeToggle={toggleType}
+        selectedBuildingId={selectedBuildingId}
+        onBuildingChange={handleBuildingChange}
+        selectedFloorId={selectedFloorId}
+        onFloorChange={setSelectedFloorId}
+        selectedGasTypes={selectedGasTypes}
+        onGasTypeToggle={toggleGasType}
+        buildings={buildings}
+        floorsForSelectedBuilding={floorsForSelectedBuilding}
+        filteredCount={filteredEquipment.length}
+        totalCount={equipment.length}
+        onReset={resetFilters}
+      />
+
+      <div className="flex w-full">
+        <div className="flex-1 min-w-0">
+          <EquipmentMapView
+            isLoading={false}
+            isError={false}
+            featureCollection={featureCollection}
+            equipmentWithCoordsCount={equipmentWithCoords.length}
+            mapCenter={mapCenter}
+            onMapReady={setMapReady}
+            mapReady={mapReady}
+            focusedEquipmentId={selectedEquipment?.id ?? null}
+            onFeatureClick={(id: string) => {
+              const found = equipment.find((e) => e.id === id);
+              if (found) {
+                setSelectedEquipment(found);
+              }
+            }}
+          />
+        </div>
+      </div>
     </div>
+  );
+}
+
+export function SiteEquipmentListTabContent() {
+  const {
+    isLoading,
+    isError,
+    selectedTypes,
+    selectedBuildingId,
+    selectedFloorId,
+    selectedGasTypes,
+    toggleType,
+    toggleGasType,
+    handleBuildingChange,
+    setSelectedFloorId,
+    resetFilters,
+    buildings,
+    floorsForSelectedBuilding,
+    filteredEquipment,
+    equipment,
+    hasEquipment,
+    layouts,
+    nodePositions,
+    siteId,
+    handleDeleteFromList,
+    handleEquipmentClick,
+    isCreateOpen,
+    setIsCreateOpen,
+  } = useSiteEquipment();
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-blue-600" />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="rounded-xl border-2 border-dashed border-red-200 bg-red-50 px-6 py-20 text-center">
+        <p className="text-sm text-red-600">Failed to load equipment data</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative w-full space-y-4">
+      <EquipmentFilters
+        selectedTypes={selectedTypes}
+        onTypeToggle={toggleType}
+        selectedBuildingId={selectedBuildingId}
+        onBuildingChange={handleBuildingChange}
+        selectedFloorId={selectedFloorId}
+        onFloorChange={setSelectedFloorId}
+        selectedGasTypes={selectedGasTypes}
+        onGasTypeToggle={toggleGasType}
+        buildings={buildings}
+        floorsForSelectedBuilding={floorsForSelectedBuilding}
+        filteredCount={filteredEquipment.length}
+        totalCount={equipment.length}
+        onReset={resetFilters}
+      />
+
+      <div className="flex items-center justify-between text-sm text-gray-600">
+        <div>
+          {filteredEquipment.length} équipements
+          {filteredEquipment.length !== equipment.length && (
+            <span className="text-gray-400"> (sur {equipment.length})</span>
+          )}
+        </div>
+        <Button
+          variant="outline"
+          onClick={() => setIsCreateOpen(true)}
+        >
+          <Plus className="h-4 w-4 mr-2" />
+          Add Equipment
+        </Button>
+      </div>
+
+      <EquipmentListView
+        isLoading={false}
+        equipment={filteredEquipment}
+        hasEquipment={hasEquipment}
+        layouts={layouts}
+        nodePositions={nodePositions}
+        siteId={siteId}
+        onDelete={handleDeleteFromList}
+        onEquipmentClick={handleEquipmentClick}
+      />
+    </div>
+  );
+}
+
+/**
+ * Comprehensive site equipment map with multiple view modes (Map, Grid, List)
+ * Displays valves, sources, and fittings with advanced filtering and editing capabilities
+ */
+export function SiteEquipmentMap({
+  siteId,
+  siteName,
+  siteLatitude,
+  siteLongitude,
+  buildings = [],
+}: SiteEquipmentMapProps) {
+  return (
+    <SiteEquipmentProvider
+      siteId={siteId}
+      siteName={siteName}
+      siteLatitude={siteLatitude}
+      siteLongitude={siteLongitude}
+      buildings={buildings}
+    >
+      <div className="relative w-full space-y-4">
+        <SiteEquipmentMapTabContent />
+        <SiteEquipmentDialogs
+          siteId={siteId}
+          siteLatitude={siteLatitude}
+          siteLongitude={siteLongitude}
+        />
+      </div>
+    </SiteEquipmentProvider>
   );
 }

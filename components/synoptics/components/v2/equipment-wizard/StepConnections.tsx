@@ -94,7 +94,9 @@ export function StepConnections({ value, onChange, siteId, gasType }: StepConnec
 
     return allNodes.filter((node) => {
       const detail = (details as any)[node.id];
-      const nodeGas: string | undefined = detail?.gasType;
+      // Prefer gasType returned by element details, but fall back to node.gasType if missing
+      const nodeGas: string | undefined =
+        (detail as any)?.gasType ?? (node as any)?.gasType;
 
       // Filtre localisation : bâtiment / étage à partir des IDs présents sur le nœud
       if (buildingFilter !== "all" && node.buildingId !== buildingFilter) {
