@@ -8,25 +8,19 @@ import { getGasLineColor } from '../hierarchy/gas-config';
 
 export const SourceNode = memo(({ data }: NodeProps) => {
   const gasColor = getGasLineColor(data.gasType as string);
-  const showHandles = data.editable !== false; // Show handles only in editable mode
+  const showHandles = data.editable !== false;
   const isSelected = data.isSelected === true;
   const isDownstream = data.isDownstream === true;
-  const rotation = (data.rotation as number) || 0; // 0, 90, 180, 270
+  const rotation = (data.rotation as number) || 0;
   const showLocationBadge = (data as any).showLocationBadges && (data as any).siteId;
-  
-  // Determine highlight style
-  let highlightClass = 'shadow-lg';
+
+  let highlightClass = 'shadow-md transition-all duration-200';
   if (isSelected) {
-    highlightClass = 'ring-4 ring-gray-900 ring-offset-2 shadow-2xl scale-110 animate-pulse-slow';
+    highlightClass = 'ring-2 ring-blue-500 ring-offset-1 shadow-lg scale-110';
   } else if (isDownstream) {
-    highlightClass = 'ring-2 ring-gray-500/50 shadow-lg shadow-gray-400/40 scale-105';
+    highlightClass = 'ring-1 ring-gray-400 shadow-md scale-105';
   }
-  
-  // Handle position based on rotation (sources only have output)
-  // 0°: Right (out)
-  // 90°: Bottom (out)
-  // 180°: Left (out)
-  // 270°: Top (out)
+
   const getHandlePosition = () => {
     switch (rotation) {
       case 90:
@@ -39,22 +33,46 @@ export const SourceNode = memo(({ data }: NodeProps) => {
         return Position.Right;
     }
   };
-  
-  const handlePosition = getHandlePosition();
-  
+
+  const fixedWidth = 120;
+
   return (
     <div className="relative inline-block">
-      <div 
-        className={`px-4 py-3 rounded-lg border-2 min-w-[120px] ${highlightClass} transition-all duration-150`}
-        style={{ transform: `rotate(${rotation}deg)`, backgroundColor: gasColor, borderColor: gasColor }}
+      <div
+        className={`px-2 py-1 rounded-md border-2 bg-white ${highlightClass}`}
+        style={{
+          width: `${fixedWidth}px`,
+          borderColor: gasColor,
+          transform: `rotate(${rotation}deg)`,
+          transformOrigin: 'center center',
+        }}
       >
-        <Handle type="source" position={handlePosition} className="w-3 h-3" style={{ opacity: showHandles ? 1 : 0 }} />
-        
+        <Handle
+          type="source"
+          position={getHandlePosition()}
+          className="w-2 h-2"
+          style={{
+            background: gasColor,
+            border: '1px solid white',
+            opacity: showHandles ? 0.9 : 0,
+          }}
+        />
+
         <div className="flex items-center gap-2">
-          <Cylinder className="w-5 h-5 text-white" />
-          <div className="text-white">
-            <div className="text-xs font-semibold">{data.label as string}</div>
-            <div className="text-[10px] opacity-90 capitalize">{(data.gasType as string)?.replace(/_/g, ' ')}</div>
+          <div
+            className="flex items-center justify-center text-white px-1 py-0.5 rounded"
+            style={{ backgroundColor: gasColor }}
+          >
+            <Cylinder className="w-4 h-4 text-white" />
+          </div>
+
+          <div className="overflow-hidden text-left">
+            <div className="text-[10px] font-semibold text-gray-800 leading-tight truncate">
+              {(data.label as string) || 'Source'}
+            </div>
+            <div className="text-[9px] text-gray-500 capitalize truncate">
+              {(data.gasType as string)?.replace(/_/g, ' ')}
+            </div>
           </div>
         </div>
       </div>

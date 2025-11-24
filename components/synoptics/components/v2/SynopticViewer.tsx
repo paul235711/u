@@ -42,6 +42,8 @@ const edgeTypes = {
   orthogonal: OrthogonalEdge,
 } as const;
 
+const EMPTY_ANNOTATIONS: Annotation[] = [];
+
 interface SynopticViewerProps {
   nodes: any[];
   connections: any[];
@@ -77,7 +79,7 @@ export function SynopticViewer({
   visibleNodeIds,
   highlightedNodeIds,
   edgeToolMode = 'select',
-  annotations = [],
+  annotations = EMPTY_ANNOTATIONS,
   showAnnotations = true,
   showLocationBadges = false,
 }: SynopticViewerProps) {

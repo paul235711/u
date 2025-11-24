@@ -65,10 +65,10 @@ interface ValveNodeRef {
   zoneId?: string;
 }
 
-// Approximate coordinates for the demo site (central Paris)
+// Real coordinates for Hôpital de la Croix-Rousse (Lyon)
 const SITE_COORDS = {
-  latitude: 48.8566,
-  longitude: 2.3522,
+  latitude: 45.781798,
+  longitude: 4.830209,
 };
 
 // Site-level gases (what is produced / stored on site)
@@ -181,7 +181,106 @@ const BUILDINGS_CONFIG: DemoBuildingConfig[] = [
       },
     ],
   },
+  {
+    key: 'imagerie',
+    name: 'Batiment Imagerie',
+    latitudeOffset: 0.0009,
+    longitudeOffset: 0.0001,
+    floors: [
+      {
+        floorNumber: 0,
+        name: 'Rez-de-chaussee - Radiologie et IRM',
+        zones: [
+          {
+            id: 'IMG-RDC-RADIO',
+            name: 'Radiologie diagnostique',
+            gasTypes: ['oxygen', 'medical_air'],
+          },
+          {
+            id: 'IMG-RDC-IRM',
+            name: 'IRM et imagerie avancee',
+            gasTypes: ['oxygen', 'medical_air', 'vacuum'],
+          },
+        ],
+      },
+      {
+        floorNumber: 1,
+        name: '1er etage - Interventions guidées',
+        zones: [
+          {
+            id: 'IMG-1-INTERV',
+            name: 'Plateau interventions hybrides',
+            gasTypes: ['oxygen', 'nitrous_oxide', 'medical_air', 'vacuum'],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    key: 'logistique',
+    name: 'Batiment Logistique',
+    latitudeOffset: -0.0002,
+    longitudeOffset: 0.0011,
+    floors: [
+      {
+        floorNumber: -1,
+        name: 'Sous-sol - Centrale technique',
+        zones: [
+          {
+            id: 'LOG-SS-CENTRALE',
+            name: 'Centrale fluides et maintenance',
+            gasTypes: ['oxygen', 'nitrous_oxide', 'medical_air', 'vacuum'],
+          },
+        ],
+      },
+      {
+        floorNumber: 0,
+        name: 'Rez-de-chaussee - Pharmacie et logistique',
+        zones: [
+          {
+            id: 'LOG-RDC-PHARM',
+            name: 'Pharmacie centrale',
+            gasTypes: ['oxygen', 'medical_air'],
+          },
+          {
+            id: 'LOG-RDC-SUPPLY',
+            name: 'Logistique blocs',
+            gasTypes: ['oxygen', 'medical_air', 'vacuum'],
+          },
+        ],
+      },
+    ],
+  },
 ];
+
+const SITE_NODE_SPACING = {
+  lat: 0.00003,
+  lng: 0.00004,
+};
+
+const BUILDING_NODE_SPACING = {
+  lat: 0.00003,
+  lng: 0.00004,
+};
+
+function computeGridCoords(
+  baseLat: number | string,
+  baseLng: number | string,
+  index: number,
+  columns: number,
+  spacing: { lat: number; lng: number },
+) {
+  const baseLatNum = typeof baseLat === 'number' ? baseLat : parseFloat(baseLat);
+  const baseLngNum = typeof baseLng === 'number' ? baseLng : parseFloat(baseLng);
+
+  const col = index % columns;
+  const row = Math.floor(index / columns);
+
+  const latitude = baseLatNum + (row - 1) * spacing.lat;
+  const longitude = baseLngNum + (col - (columns - 1) / 2) * spacing.lng;
+
+  return { latitude, longitude };
+}
 
 interface PlannedValve {
   code: string;
@@ -490,6 +589,9 @@ async function main() {
   let totalZones = 0;
   let totalValves = 0;
 
+  let siteNodeIndex = 0;
+
+  const sourceNodes: { nodeId: string; gasType: ValveGasType }[] = [];
   const siteValveNodes: ValveNodeRef[] = [];
   const buildingValveNodes: ValveNodeRef[] = [];
   const floorValveNodes: ValveNodeRef[] = [];
@@ -504,11 +606,40 @@ async function main() {
   };
 
   for (const gas of SITE_GASES) {
-    await db.insert(sources).values({
-      siteId: site.id,
-      name: `${gasLabels[gas]} - Centrale`,
-      gasType: gas,
-    });
+    const [source] = await db
+      .insert(sources)
+      .values({
+        siteId: site.id,
+        name: `${gasLabels[gas]} - Centrale`,
+        gasType: gas,
+      })
+      .returning();
+
+    const sourceCoords = computeGridCoords(
+      SITE_COORDS.latitude,
+      SITE_COORDS.longitude,
+      siteNodeIndex++,
+      4,
+      SITE_NODE_SPACING,
+    );
+
+    const [sourceNode] = await db
+      .insert(nodes)
+      .values({
+        siteId: site.id,
+        elementId: source.id,
+        nodeType: 'source',
+        latitude: sourceCoords.latitude,
+        longitude: sourceCoords.longitude,
+      })
+      .returning();
+
+    if (sourceNode) {
+      sourceNodes.push({
+        nodeId: sourceNode.id,
+        gasType: gas,
+      });
+    }
 
     // Create 1 main site valve per gas (general valve photos)
     const [valve] = await db
@@ -522,12 +653,22 @@ async function main() {
       })
       .returning();
 
+    const siteValveCoords = computeGridCoords(
+      SITE_COORDS.latitude,
+      SITE_COORDS.longitude,
+      siteNodeIndex++,
+      4,
+      SITE_NODE_SPACING,
+    );
+
     const [node] = await db
       .insert(nodes)
       .values({
         siteId: site.id,
         elementId: valve.id,
         nodeType: 'valve',
+        latitude: siteValveCoords.latitude,
+        longitude: siteValveCoords.longitude,
       })
       .returning();
 
@@ -563,6 +704,8 @@ async function main() {
 
     console.log(`\nBuilding: ${buildingConfig.name}`);
 
+    let buildingNodeIndex = 0;
+
     // Gases present in this building (union of all its zones, intersected with site gases)
     const buildingGasTypes = new Set<ValveGasType>();
     for (const floorConfig of buildingConfig.floors) {
@@ -588,6 +731,14 @@ async function main() {
         })
         .returning();
 
+      const buildingCoords = computeGridCoords(
+        building.latitude,
+        building.longitude,
+        buildingNodeIndex++,
+        6,
+        BUILDING_NODE_SPACING,
+      );
+
       const [buildingNode] = await db
         .insert(nodes)
         .values({
@@ -595,6 +746,8 @@ async function main() {
           elementId: valve.id,
           nodeType: 'valve',
           buildingId: building.id,
+          latitude: buildingCoords.latitude,
+          longitude: buildingCoords.longitude,
         })
         .returning();
 
@@ -652,6 +805,14 @@ async function main() {
           })
           .returning();
 
+        const floorCoords = computeGridCoords(
+          building.latitude,
+          building.longitude,
+          buildingNodeIndex++,
+          6,
+          BUILDING_NODE_SPACING,
+        );
+
         const [floorNode] = await db
           .insert(nodes)
           .values({
@@ -660,6 +821,8 @@ async function main() {
             nodeType: 'valve',
             buildingId: building.id,
             floorId: floor.id,
+            latitude: floorCoords.latitude,
+            longitude: floorCoords.longitude,
           })
           .returning();
 
@@ -708,6 +871,14 @@ async function main() {
             })
             .returning();
 
+          const zoneCoords = computeGridCoords(
+            building.latitude,
+            building.longitude,
+            buildingNodeIndex++,
+            6,
+            BUILDING_NODE_SPACING,
+          );
+
           const [zoneNode] = await db
             .insert(nodes)
             .values({
@@ -717,6 +888,8 @@ async function main() {
               buildingId: building.id,
               floorId: floor.id,
               zoneId: zone.id,
+              latitude: zoneCoords.latitude,
+              longitude: zoneCoords.longitude,
             })
             .returning();
 
@@ -782,6 +955,22 @@ async function main() {
   }
 
   // 7. Create logical connections: site -> building -> floor -> zone
+
+  // source -> site main per gas
+  for (const sourceNode of sourceNodes) {
+    const siteMainNodesForGas = siteValveNodes.filter(
+      (v) => v.gasType === sourceNode.gasType,
+    );
+
+    for (const siteNode of siteMainNodesForGas) {
+      await db.insert(connections).values({
+        siteId: site.id,
+        fromNodeId: sourceNode.nodeId,
+        toNodeId: siteNode.nodeId,
+        gasType: sourceNode.gasType,
+      });
+    }
+  }
 
   // site -> building per gas
   for (const siteNode of siteValveNodes) {

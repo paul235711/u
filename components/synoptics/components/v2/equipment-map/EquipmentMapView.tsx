@@ -350,7 +350,7 @@ export function EquipmentMapView({
         },
       });
 
-      // Unclustered equipment points
+      // Unclustered equipment points (generic base, hidden for valves/sources which have custom layers)
       console.log('[EquipmentMapView] Adding equipment layers');
       map.addLayer({
         id: 'equipment-unclustered',
@@ -361,6 +361,8 @@ export function EquipmentMapView({
           'circle-radius': [
             'case',
             ['==', ['get', 'nodeType'], 'valve'],
+            0.1,
+            ['==', ['get', 'nodeType'], 'source'],
             0.1,
             8,
           ],
@@ -388,6 +390,7 @@ export function EquipmentMapView({
         },
       });
 
+      // Valve halos (gas-coloured)
       map.addLayer({
         id: 'equipment-valves-halo',
         type: 'circle',
@@ -413,6 +416,7 @@ export function EquipmentMapView({
         },
       });
 
+      // Valve circles (gas-coloured)
       map.addLayer({
         id: 'equipment-valves-circle',
         type: 'circle',
@@ -448,6 +452,58 @@ export function EquipmentMapView({
         },
       });
 
+      // Source halos (gas-coloured)
+      map.addLayer({
+        id: 'equipment-sources-halo',
+        type: 'circle',
+        source: 'equipment',
+        filter: ['all', ['!', ['has', 'point_count']], ['==', ['get', 'nodeType'], 'source']],
+        paint: {
+          'circle-radius': 14,
+          'circle-color': [
+            'match',
+            ['get', 'gasType'],
+            'oxygen', GAS_COLORS.oxygen,
+            'medical_air', GAS_COLORS.medical_air,
+            'vacuum', GAS_COLORS.vacuum,
+            'nitrogen', GAS_COLORS.nitrogen,
+            'nitrous_oxide', GAS_COLORS.nitrous_oxide,
+            'carbon_dioxide', GAS_COLORS.carbon_dioxide,
+            'co2', GAS_COLORS.co2,
+            'compressed_air', GAS_COLORS.compressed_air,
+            GAS_COLORS.carbon_dioxide,
+          ],
+          'circle-opacity': 0.15,
+          'circle-blur': 0.5,
+        },
+      });
+
+      // Source circles (gas-coloured ring to distinguish from valve dots)
+      map.addLayer({
+        id: 'equipment-sources-circle',
+        type: 'circle',
+        source: 'equipment',
+        filter: ['all', ['!', ['has', 'point_count']], ['==', ['get', 'nodeType'], 'source']],
+        paint: {
+          'circle-radius': 11,
+          'circle-color': 'rgba(0,0,0,0)',
+          'circle-stroke-color': [
+            'match',
+            ['get', 'gasType'],
+            'oxygen', GAS_COLORS.oxygen,
+            'medical_air', GAS_COLORS.medical_air,
+            'vacuum', GAS_COLORS.vacuum,
+            'nitrogen', GAS_COLORS.nitrogen,
+            'nitrous_oxide', GAS_COLORS.nitrous_oxide,
+            'carbon_dioxide', GAS_COLORS.carbon_dioxide,
+            'co2', GAS_COLORS.co2,
+            'compressed_air', GAS_COLORS.compressed_air,
+            GAS_COLORS.carbon_dioxide,
+          ],
+          'circle-stroke-width': 3,
+        },
+      });
+
       const valveImage = new Image(40, 40);
       valveImage.onload = () => {
         if (!map.hasImage('valve-icon')) {
@@ -467,6 +523,23 @@ export function EquipmentMapView({
         });
       };
       valveImage.src = '/valve.svg';
+
+      // Sources: big "S" label inside the coloured ring
+      map.addLayer({
+        id: 'equipment-sources-icon',
+        type: 'symbol',
+        source: 'equipment',
+        filter: ['all', ['!', ['has', 'point_count']], ['==', ['get', 'nodeType'], 'source']],
+        layout: {
+          'text-field': 'S',
+          'text-size': 14,
+          'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+          'text-allow-overlap': true,
+        },
+        paint: {
+          'text-color': '#111827',
+        },
+      });
 
       console.log('[EquipmentMapView] All layers added successfully');
 
