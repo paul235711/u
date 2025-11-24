@@ -3,9 +3,10 @@
 import { useEffect, useRef, useState } from 'react';
 import mapboxgl, { MapboxGeoJSONFeature } from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Crosshair } from 'lucide-react';
 import { MapGasLegend } from './MapGasLegend';
 import { GAS_LINE_COLORS } from '../hierarchy/gas-config';
+import { EquipmentFloorControl } from './EquipmentFloorControl';
 
 const STATUS_PALETTE: Record<string, { color: string; badge: string; muted: string }> = {
   open: { color: '#16a34a', badge: 'bg-emerald-100 text-emerald-700', muted: 'bg-emerald-50 text-emerald-400' },
@@ -28,6 +29,11 @@ const GAS_COLORS: Record<string, string> = {
   compressed_air: GAS_LINE_COLORS.compressed_air,
 };
 
+interface FloorSummary {
+  id: string;
+  name: string;
+}
+
 interface EquipmentMapViewProps {
   isLoading: boolean;
   isError: boolean;
@@ -38,6 +44,17 @@ interface EquipmentMapViewProps {
   mapReady: boolean;
   focusedEquipmentId?: string | null;
   onFeatureClick?: (id: string) => void;
+  selectedFloorId: string;
+  floorsForSelectedBuilding: FloorSummary[];
+  onFloorChange: (id: string) => void;
+  selectedGasTypes: string[];
+  onGasTypeToggle: (gasType: string) => void;
+  availableGasTypes: string[];
+  selectedTypes: string[];
+  onTypeToggle: (type: 'source' | 'valve' | 'fitting') => void;
+  hasSource: boolean;
+  hasValve: boolean;
+  hasFitting: boolean;
 }
 
 function humanise(text: string): string {
@@ -64,14 +81,27 @@ export function EquipmentMapView({
   mapReady,
   focusedEquipmentId,
   onFeatureClick,
+  selectedFloorId,
+  floorsForSelectedBuilding,
+  onFloorChange,
+  selectedGasTypes,
+  onGasTypeToggle,
+  availableGasTypes,
+  selectedTypes,
+  onTypeToggle,
+  hasSource,
+  hasValve,
+  hasFitting,
 }: EquipmentMapViewProps) {
   console.log('[EquipmentMapView] Component rendering');
   
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const popupRef = useRef<mapboxgl.Popup | null>(null);
+  const userLocationMarkerRef = useRef<mapboxgl.Marker | null>(null);
 
   const [mapStyle, setMapStyle] = useState<'standard' | 'light' | 'satellite'>('standard');
+  const [isLocating, setIsLocating] = useState(false);
 
   const styleUrl =
     mapStyle === 'standard'
@@ -79,6 +109,99 @@ export function EquipmentMapView({
       : mapStyle === 'light'
       ? 'mapbox://styles/mapbox/light-v11'
       : 'mapbox://styles/mapbox/satellite-streets-v12';
+
+  const updateUserLocationMarker = (
+    coords: [number, number],
+    accuracyMeters: number
+  ) => {
+    if (!mapRef.current || typeof document === 'undefined') return;
+
+    const [lng, lat] = coords;
+    const zoom = mapRef.current.getZoom();
+    const metersPerPixel =
+      156543.03392 * Math.cos((lat * Math.PI) / 180) / Math.pow(2, zoom);
+
+    const clampedAccuracy = Math.min(Math.max(accuracyMeters || 0, 10), 200);
+    let radiusPx = clampedAccuracy / metersPerPixel;
+    radiusPx = Math.max(12, Math.min(radiusPx, 160));
+    const diameterPx = radiusPx * 2;
+
+    if (userLocationMarkerRef.current) {
+      userLocationMarkerRef.current.setLngLat(coords);
+      const el = userLocationMarkerRef.current.getElement() as HTMLDivElement | null;
+      if (el) {
+        el.style.width = `${diameterPx}px`;
+        el.style.height = `${diameterPx}px`;
+        const halo = el.querySelector('.user-location-halo') as HTMLDivElement | null;
+        if (halo) {
+          halo.style.width = `${diameterPx}px`;
+          halo.style.height = `${diameterPx}px`;
+        }
+      }
+      return;
+    }
+
+    const el = document.createElement('div');
+    el.className = 'user-location-marker relative flex items-center justify-center';
+    el.style.width = `${diameterPx}px`;
+    el.style.height = `${diameterPx}px`;
+
+    const halo = document.createElement('div');
+    halo.className =
+      'user-location-halo absolute rounded-full bg-blue-500/15 border border-blue-500/40 shadow-sm';
+    halo.style.width = `${diameterPx}px`;
+    halo.style.height = `${diameterPx}px`;
+
+    const dot = document.createElement('div');
+    dot.className = 'relative h-3 w-3 rounded-full bg-blue-600 border-2 border-white shadow';
+
+    el.appendChild(halo);
+    el.appendChild(dot);
+
+    userLocationMarkerRef.current = new mapboxgl.Marker({
+      element: el,
+      anchor: 'center',
+    })
+      .setLngLat(coords)
+      .addTo(mapRef.current);
+  };
+
+  const handleLocateMe = () => {
+    if (!mapRef.current) return;
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      console.warn('[EquipmentMapView] Geolocation not available in this browser');
+      return;
+    }
+
+    setIsLocating(true);
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setIsLocating(false);
+        const { latitude, longitude } = position.coords;
+        const accuracy = position.coords.accuracy ?? 0;
+        const coords: [number, number] = [longitude, latitude];
+
+        updateUserLocationMarker(coords, accuracy);
+
+        if (mapRef.current) {
+          mapRef.current.easeTo({
+            center: coords,
+            zoom: 17,
+          });
+        }
+      },
+      (error) => {
+        console.warn('[EquipmentMapView] Geolocation error:', error);
+        setIsLocating(false);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 60000,
+      }
+    );
+  };
 
   // Initialize map
   useEffect(() => {
@@ -572,6 +695,10 @@ export function EquipmentMapView({
         mapRef.current = null;
         onMapReady(false);
       }
+      if (userLocationMarkerRef.current) {
+        userLocationMarkerRef.current.remove();
+        userLocationMarkerRef.current = null;
+      }
     };
   }, [mapStyle]);
 
@@ -712,8 +839,44 @@ export function EquipmentMapView({
         </div>
       )}
 
+      {/* Floor selector + locate-me (bottom-right) */}
+      {!isLoading && !isError && equipmentWithCoordsCount > 0 && (
+        <div className="pointer-events-none absolute bottom-4 right-4 z-20 flex flex-col items-center gap-2">
+          <button
+            type="button"
+            onClick={handleLocateMe}
+            className="pointer-events-auto inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-gray-200 bg-white/95 text-gray-800 shadow-sm backdrop-blur hover:bg-gray-100"
+            aria-label="Center map on my location"
+          >
+            {isLocating ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Crosshair className="h-4 w-4" />
+            )}
+          </button>
+          <div className="pointer-events-auto">
+            <EquipmentFloorControl
+              floors={floorsForSelectedBuilding}
+              selectedFloorId={selectedFloorId}
+              onFloorChange={onFloorChange}
+            />
+          </div>
+        </div>
+      )}
+
       {/* Gas Legend */}
-      {!isLoading && equipmentWithCoordsCount > 0 && <MapGasLegend />}
+      {!isLoading && equipmentWithCoordsCount > 0 && (
+        <MapGasLegend
+          selectedGasTypes={selectedGasTypes}
+          onGasTypeToggle={onGasTypeToggle}
+          availableGasTypes={availableGasTypes}
+          selectedTypes={selectedTypes}
+          onTypeToggle={onTypeToggle}
+          hasSource={hasSource}
+          hasValve={hasValve}
+          hasFitting={hasFitting}
+        />
+      )}
     </div>
   );
 }

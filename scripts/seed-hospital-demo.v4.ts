@@ -206,138 +206,143 @@ interface MediaVariantConfig {
   storagePath: string;
   mimeType: string;
   label: string;
+  gasType: ValveGasType | 'any';
 }
 
 const SAMPLE_MEDIA_CONFIG: Record<MediaLevel, MediaVariantConfig[]> = {
   site: [
     {
-      sourceSegments: ['docs', 'img samples', 'site:general valve.png'],
-      destFileName: 'site-general-valve-1.png',
-      storagePath: '/uploads/media/site-general-valve-1.png',
+      sourceSegments: ['docs', 'img samples', 'source valve O2.png'],
+      destFileName: 'site-main-oxygen.png',
+      storagePath: '/uploads/media/site-main-oxygen.png',
       mimeType: 'image/png',
-      label: 'Site main valve',
+      label: 'Site main valve - Oxygen',
+      gasType: 'oxygen',
     },
     {
-      sourceSegments: ['docs', 'img samples', 'site:general valve 2.png'],
-      destFileName: 'site-general-valve-2.png',
-      storagePath: '/uploads/media/site-general-valve-2.png',
+      sourceSegments: ['docs', 'img samples', 'source valve AIR.png'],
+      destFileName: 'site-main-medical-air.png',
+      storagePath: '/uploads/media/site-main-medical-air.png',
       mimeType: 'image/png',
-      label: 'Site main valve - variant 2',
+      label: 'Site main valve - Medical air',
+      gasType: 'medical_air',
     },
     {
-      sourceSegments: ['docs', 'img samples', 'site:general valve 3.png'],
-      destFileName: 'site-general-valve-3.png',
-      storagePath: '/uploads/media/site-general-valve-3.png',
+      sourceSegments: ['docs', 'img samples', 'source valve 2 - N2O.png'],
+      destFileName: 'site-main-nitrous-oxide.png',
+      storagePath: '/uploads/media/site-main-nitrous-oxide.png',
       mimeType: 'image/png',
-      label: 'Site main valve - variant 3',
+      label: 'Site main valve - Nitrous oxide',
+      gasType: 'nitrous_oxide',
+    },
+    {
+      sourceSegments: ['docs', 'img samples', 'source valve vacuum.png'],
+      destFileName: 'site-main-vacuum.png',
+      storagePath: '/uploads/media/site-main-vacuum.png',
+      mimeType: 'image/png',
+      label: 'Site main valve - Vacuum',
+      gasType: 'vacuum',
     },
   ],
   building: [
     {
-      sourceSegments: ['docs', 'img samples', 'building valve.png'],
-      destFileName: 'building-valve-1.png',
-      storagePath: '/uploads/media/building-valve-1.png',
+      sourceSegments: ['docs', 'img samples', 'building valve O2.png'],
+      destFileName: 'building-valve-oxygen.png',
+      storagePath: '/uploads/media/building-valve-oxygen.png',
       mimeType: 'image/png',
-      label: 'Building isolation valve',
+      label: 'Building isolation valve - Oxygen',
+      gasType: 'oxygen',
     },
     {
-      sourceSegments: ['docs', 'img samples', 'building valve 2.png'],
-      destFileName: 'building-valve-2.png',
-      storagePath: '/uploads/media/building-valve-2.png',
+      sourceSegments: ['docs', 'img samples', 'building valve N2O.png'],
+      destFileName: 'building-valve-nitrous-oxide.png',
+      storagePath: '/uploads/media/building-valve-nitrous-oxide.png',
       mimeType: 'image/png',
-      label: 'Building isolation valve - variant 2',
+      label: 'Building isolation valve - Nitrous oxide',
+      gasType: 'nitrous_oxide',
     },
     {
-      sourceSegments: ['docs', 'img samples', 'building valve 3.png'],
-      destFileName: 'building-valve-3.png',
-      storagePath: '/uploads/media/building-valve-3.png',
+      sourceSegments: ['docs', 'img samples', 'building valve AIR or VACUUM.png'],
+      destFileName: 'building-valve-medical-air.png',
+      storagePath: '/uploads/media/building-valve-medical-air.png',
       mimeType: 'image/png',
-      label: 'Building isolation valve - variant 3',
+      label: 'Building isolation valve - Medical air',
+      gasType: 'medical_air',
     },
     {
-      sourceSegments: ['docs', 'img samples', 'building valve 4.png'],
-      destFileName: 'building-valve-4.png',
-      storagePath: '/uploads/media/building-valve-4.png',
+      sourceSegments: ['docs', 'img samples', 'building valve AIR or VACUUM.png'],
+      destFileName: 'building-valve-vacuum.png',
+      storagePath: '/uploads/media/building-valve-vacuum.png',
       mimeType: 'image/png',
-      label: 'Building isolation valve - variant 4',
-    },
-    {
-      sourceSegments: ['docs', 'img samples', 'building valve 5.png'],
-      destFileName: 'building-valve-5.png',
-      storagePath: '/uploads/media/building-valve-5.png',
-      mimeType: 'image/png',
-      label: 'Building isolation valve - variant 5',
-    },
-    {
-      sourceSegments: ['docs', 'img samples', 'buildings.png'],
-      destFileName: 'building-valve-6.png',
-      storagePath: '/uploads/media/building-valve-6.png',
-      mimeType: 'image/png',
-      label: 'Building isolation manifold',
+      label: 'Building isolation valve - Vacuum',
+      gasType: 'vacuum',
     },
   ],
   floor: [
     {
-      sourceSegments: ['docs', 'img samples', 'floor valve.png'],
-      destFileName: 'floor-valve-1.png',
-      storagePath: '/uploads/media/floor-valve-1.png',
+      sourceSegments: ['docs', 'img samples', 'floor valve all gases .png'],
+      destFileName: 'floor-valve-all-gases.png',
+      storagePath: '/uploads/media/floor-valve-all-gases.png',
       mimeType: 'image/png',
-      label: 'Floor isolation valve',
+      label: 'Floor isolation valve (all gases)',
+      gasType: 'any',
     },
   ],
   zone: [
     {
-      sourceSegments: ['docs', 'img samples', 'zone valve.png'],
-      destFileName: 'zone-valve-1.png',
-      storagePath: '/uploads/media/zone-valve-1.png',
+      sourceSegments: ['docs', 'img samples', 'zone valve detailed for O2.png'],
+      destFileName: 'zone-valve-detailed-oxygen.png',
+      storagePath: '/uploads/media/zone-valve-detailed-oxygen.png',
       mimeType: 'image/png',
-      label: 'Zone valve box',
+      label: 'Zone valve box - Oxygen',
+      gasType: 'oxygen',
     },
     {
-      sourceSegments: ['docs', 'img samples', 'zone valve 2.png'],
-      destFileName: 'zone-valve-2.png',
-      storagePath: '/uploads/media/zone-valve-2.png',
+      sourceSegments: ['docs', 'img samples', 'zone valve detailed for AIR.png'],
+      destFileName: 'zone-valve-detailed-medical-air.png',
+      storagePath: '/uploads/media/zone-valve-detailed-medical-air.png',
       mimeType: 'image/png',
-      label: 'Zone valve box - variant 2',
+      label: 'Zone valve box - Medical air',
+      gasType: 'medical_air',
     },
     {
-      sourceSegments: ['docs', 'img samples', 'zone valve 5.png'],
-      destFileName: 'zone-valve-3.png',
-      storagePath: '/uploads/media/zone-valve-3.png',
-      mimeType: 'image/png',
-      label: 'Zone valve box - variant 3',
+      sourceSegments: ['docs', 'img samples', 'zone valve detailed for N2O.jpeg'],
+      destFileName: 'zone-valve-detailed-nitrous-oxide.jpeg',
+      storagePath: '/uploads/media/zone-valve-detailed-nitrous-oxide.jpeg',
+      mimeType: 'image/jpeg',
+      label: 'Zone valve box - Nitrous oxide',
+      gasType: 'nitrous_oxide',
     },
     {
-      sourceSegments: ['docs', 'img samples', 'zone valve 6.png'],
-      destFileName: 'zone-valve-4.png',
-      storagePath: '/uploads/media/zone-valve-4.png',
+      sourceSegments: ['docs', 'img samples', 'zone valve detailed for VACCUM.png'],
+      destFileName: 'zone-valve-detailed-vacuum.png',
+      storagePath: '/uploads/media/zone-valve-detailed-vacuum.png',
       mimeType: 'image/png',
-      label: 'Zone valve box - variant 4',
+      label: 'Zone valve box - Vacuum',
+      gasType: 'vacuum',
     },
     {
-      sourceSegments: ['docs', 'img samples', 'zone valve 7.png'],
-      destFileName: 'zone-valve-5.png',
-      storagePath: '/uploads/media/zone-valve-5.png',
+      sourceSegments: ['docs', 'img samples', 'zone valve large (common for O2, VACUUM, N2O, AIR).png'],
+      destFileName: 'zone-valve-large-all-gases.png',
+      storagePath: '/uploads/media/zone-valve-large-all-gases.png',
       mimeType: 'image/png',
-      label: 'Zone valve box - variant 5',
+      label: 'Zone valve box - Generic',
+      gasType: 'any',
     },
   ],
 };
 
-const mediaRotationIndex: Record<MediaLevel, number> = {
-  site: 0,
-  building: 0,
-  floor: 0,
-  zone: 0,
-};
-
-function getNextMediaVariant(level: MediaLevel): MediaVariantConfig | null {
+function getMediaVariant(level: MediaLevel, gasType: ValveGasType): MediaVariantConfig | null {
   const variants = SAMPLE_MEDIA_CONFIG[level];
   if (!variants || variants.length === 0) return null;
 
-  const index = mediaRotationIndex[level] % variants.length;
-  mediaRotationIndex[level] = (mediaRotationIndex[level] + 1) % variants.length;
-  return variants[index];
+  const exactMatch = variants.find((variant) => variant.gasType === gasType);
+  if (exactMatch) return exactMatch;
+
+  const anyLevelVariant = variants.find((variant) => variant.gasType === 'any');
+  if (anyLevelVariant) return anyLevelVariant;
+
+  return variants[0] ?? null;
 }
 
 async function prepareSampleMediaFiles() {
@@ -368,8 +373,9 @@ async function attachMediaToValve(params: {
   siteId: string;
   valveId: string;
   level: MediaLevel;
+  gasType: ValveGasType;
 }) {
-  const config = getNextMediaVariant(params.level);
+  const config = getMediaVariant(params.level, params.gasType);
   if (!config) return;
 
   try {
@@ -529,6 +535,7 @@ async function main() {
       siteId: site.id,
       valveId: valve.id,
       level: 'site',
+      gasType: gas,
     });
 
     if (node) {
@@ -595,6 +602,7 @@ async function main() {
         siteId: site.id,
         valveId: valve.id,
         level: 'building',
+        gasType: gas,
       });
 
       if (buildingNode) {
@@ -659,6 +667,7 @@ async function main() {
           siteId: site.id,
           valveId: floorValve.id,
           level: 'floor',
+          gasType: gas,
         });
 
         if (floorNode) {
@@ -715,6 +724,7 @@ async function main() {
             siteId: site.id,
             valveId: valve.id,
             level: 'zone',
+            gasType: planned.gasType,
           });
 
           if (zoneNode) {
