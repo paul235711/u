@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { MapPicker } from "@/components/mapbox/map-picker";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -11,9 +12,15 @@ export interface StepGeoProps {
   onChange: (next: EquipmentWizardGeo) => void;
   siteLatitude?: number;
   siteLongitude?: number;
+  siteId: string;
+  buildingId?: string | null;
+  floorId?: string | null;
+  nodeId?: string | null;
+  gasType?: string | null;
 }
 
-export function StepGeo({ value, onChange, siteLatitude, siteLongitude }: StepGeoProps) {
+export function StepGeo({ value, onChange, siteLatitude, siteLongitude, siteId, buildingId, floorId, nodeId, gasType }: StepGeoProps) {
+  const [scope, setScope] = useState<"site" | "floor">(buildingId || floorId ? "floor" : "site");
   const handleLocationSelect = (lat: number, lng: number) => {
     onChange({ ...value, latitude: lat, longitude: lng });
   };
@@ -28,6 +35,9 @@ export function StepGeo({ value, onChange, siteLatitude, siteLongitude }: StepGe
   const centerLat = latitude ?? siteLatitude;
   const centerLng = longitude ?? siteLongitude;
 
+  const pickerBuildingId = scope === "site" ? undefined : buildingId;
+  const pickerFloorId = scope === "site" ? undefined : floorId;
+
   const latitudeDisplay = latitude !== null ? latitude.toFixed(6) : "";
   const longitudeDisplay = longitude !== null ? longitude.toFixed(6) : "";
 
@@ -41,6 +51,30 @@ export function StepGeo({ value, onChange, siteLatitude, siteLongitude }: StepGe
           </p>
         </div>
 
+        <div className="mt-2 flex justify-end">
+          <div className="inline-flex items-center gap-0.5 rounded-full border border-gray-200 bg-white/90 px-0.5 text-[11px] text-gray-700 shadow-sm">
+            <button
+              type="button"
+              onClick={() => setScope("site")}
+              className={`rounded-full px-2 py-1 ${
+                scope === "site" ? "bg-gray-900 text-white" : "text-gray-600 hover:bg-gray-100"
+              }`}
+            >
+              Site
+            </button>
+            <button
+              type="button"
+              onClick={() => setScope("floor")}
+              className={`rounded-full px-2 py-1 ${
+                scope === "floor" ? "bg-gray-900 text-white" : "text-gray-600 hover:bg-gray-100"
+              }`}
+              disabled={!buildingId || !floorId}
+            >
+              Étage
+            </button>
+          </div>
+        </div>
+
         <div className="rounded-md border border-gray-100 h-[300px]">
           <MapPicker
             onLocationSelect={handleLocationSelect}
@@ -48,6 +82,11 @@ export function StepGeo({ value, onChange, siteLatitude, siteLongitude }: StepGe
             initialLng={longitude ?? undefined}
             centerLat={centerLat}
             centerLng={centerLng}
+            siteId={siteId}
+            buildingId={pickerBuildingId}
+            floorId={pickerFloorId}
+            excludeNodeId={nodeId ?? undefined}
+            gasType={gasType}
           />
         </div>
 

@@ -78,6 +78,12 @@ export interface AutoLayoutConfig {
   trunkOffsetX?: number;
   // Distance between trunk and branch columns/zones
   branchOffsetX?: number;
+
+  // Site-level (source + cutoff) layout
+  siteColumnOffset?: number;
+  sitePairSpacing?: number;
+  siteVerticalSpacing?: number;
+  siteBottomMargin?: number;
 }
 
 const DEFAULT_CONFIG: AutoLayoutConfig = {
@@ -116,6 +122,11 @@ const DEFAULT_CONFIG: AutoLayoutConfig = {
   mode: 'grid',
   trunkOffsetX: 80,
   branchOffsetX: 140,
+
+  siteColumnOffset: 220,
+  sitePairSpacing: 140,
+  siteVerticalSpacing: 70,
+  siteBottomMargin: 140,
 };
 
 interface LayoutResult {
@@ -198,7 +209,6 @@ function calculateAutoLayoutPositions(
 
   // Separate nodes by association level
   const siteNodes: Node[] = []; // no building
-  const siteGasMap = new Map<string, Node[]>();
 
   // buildingId -> gasType -> Node[]
   const buildingOnlyMap = new Map<string, Map<string, Node[]>>();
@@ -215,8 +225,6 @@ function calculateAutoLayoutPositions(
     // Site-level nodes: no building
     if (!node.buildingId) {
       siteNodes.push(node);
-      if (!siteGasMap.has(gasKey)) siteGasMap.set(gasKey, []);
-      siteGasMap.get(gasKey)!.push(node);
       return;
     }
 
@@ -287,11 +295,126 @@ function calculateAutoLayoutPositions(
     return aIndex - bIndex;
   });
 
+  const gridTotalHeight =
+    uniqueFloorNumbers.length * (config.floorHeight + config.floorSpacing) - config.floorSpacing;
+  const gridBottomY = config.startY + gridTotalHeight;
+
+  const buildingSpanMap = new Map<string, { width: number; offsetX: number; index: number }>();
+  let maxSpanWidth = 0;
+  sortedBuildingIds.forEach((buildingId, index) => {
+    const floorsInBuilding = buildingFloors.get(buildingId) || new Map();
+    let maxZoneColumns = 1;
+    floorsInBuilding.forEach((entry) => {
+      const zoneCount = entry.zones.size;
+      const hasFloorOnly = entry.floorOnly.size > 0;
+      const calculated = zoneCount + (hasFloorOnly ? 1 : 0);
+      if (calculated > maxZoneColumns) maxZoneColumns = calculated;
+    });
+
+    const inferredWidth = Math.max(
+      config.zoneMinWidth * maxZoneColumns + config.zoneSpacing * Math.max(0, maxZoneColumns - 1) + config.floorPadding * 2,
+      config.buildingWidth
+    );
+
+    const width = Math.ceil(inferredWidth / 10) * 10;
+    maxSpanWidth = Math.max(maxSpanWidth, width);
+    buildingSpanMap.set(buildingId, { width, offsetX: 0, index });
+  });
+
+  // Determine final offsets so each building column has equal spacing regardless of width
+  sortedBuildingIds.forEach((buildingId) => {
+    const span = buildingSpanMap.get(buildingId);
+    if (!span) return;
+    const columnStart = span.index * (maxSpanWidth + config.buildingSpacing);
+    const offsetWithinColumn = (maxSpanWidth - span.width) / 2;
+    span.offsetX = columnStart + offsetWithinColumn;
+  });
+
+  const leftmostSpan = buildingSpanMap.get(sortedBuildingIds[0]);
+  const leftmostOffset = leftmostSpan ? leftmostSpan.offsetX : 0;
+  if (leftmostOffset !== 0) {
+    buildingSpanMap.forEach((span) => {
+      span.offsetX -= leftmostOffset;
+    });
+  }
+
+  const layoutSiteNodes = () => {
+    if (siteNodes.length === 0) return;
+
+    const siteLeftX = config.startX - (config.siteColumnOffset ?? 200);
+    const pairSpacing = config.sitePairSpacing ?? 140;
+    const rowSpacing = config.siteVerticalSpacing ?? config.valveSpacing;
+    const startY = gridBottomY + (config.siteBottomMargin ?? 120);
+
+    const sourcesByGas = new Map<string, Node[]>();
+    const cutoffByGas = new Map<string, Node[]>();
+    const miscellaneous: Node[] = [];
+
+    siteNodes.forEach((node) => {
+      const gasKey = node.gasType || 'default';
+      if (node.nodeType === 'source') {
+        if (!sourcesByGas.has(gasKey)) sourcesByGas.set(gasKey, []);
+        sourcesByGas.get(gasKey)!.push(node);
+        return;
+      }
+      if (node.nodeType === 'valve') {
+        if (!cutoffByGas.has(gasKey)) cutoffByGas.set(gasKey, []);
+        cutoffByGas.get(gasKey)!.push(node);
+        return;
+      }
+      miscellaneous.push(node);
+    });
+
+    const gasKeys = Array.from(new Set([...(sourcesByGas.keys()), ...(cutoffByGas.keys())]));
+    gasKeys.sort((a, b) => (GAS_ORDER[a] ?? 999) - (GAS_ORDER[b] ?? 999));
+
+    type SiteRow = { left?: Node; right?: Node };
+    const rows: SiteRow[] = [];
+
+    gasKeys.forEach((gas) => {
+      const sources = sourcesByGas.get(gas) ?? [];
+      const cutoffs = cutoffByGas.get(gas) ?? [];
+      const maxLen = Math.max(sources.length, cutoffs.length);
+      for (let i = 0; i < maxLen; i++) {
+        rows.push({ left: sources[i], right: cutoffs[i] });
+      }
+    });
+
+    miscellaneous.forEach((node) => rows.push({ left: node }));
+
+    if (rows.length === 0) {
+      siteNodes.forEach((node, index) => {
+        result[node.id] = {
+          x: siteLeftX,
+          y: startY + index * rowSpacing,
+        };
+      });
+      return;
+    }
+
+    rows.forEach((row, index) => {
+      const y = startY + index * rowSpacing;
+      if (row.left) {
+        result[row.left.id] = {
+          x: siteLeftX,
+          y,
+        };
+      }
+      if (row.right) {
+        result[row.right.id] = {
+          x: siteLeftX + pairSpacing,
+          y,
+        };
+      }
+    });
+  };
+
   // === Trunk layout mode (Layout 1 style) ===
   // Vertical main line per building with horizontal branches per zone
   if (config.mode === 'trunk') {
-    sortedBuildingIds.forEach((buildingId, buildingIndex) => {
-      const buildingX = config.startX + buildingIndex * (config.buildingWidth + config.buildingSpacing);
+    sortedBuildingIds.forEach((buildingId) => {
+      const span = buildingSpanMap.get(buildingId) || { width: config.buildingWidth, offsetX: 0 };
+      const buildingX = config.startX + span.offsetX;
       const trunkX = buildingX + config.buildingPadding + (config.trunkOffsetX ?? 80);
 
       const floorsInBuilding = buildingFloors.get(buildingId) || new Map();
@@ -304,7 +427,7 @@ function calculateAutoLayoutPositions(
         const floorY = config.startY + levelIndex * (config.floorHeight + config.floorSpacing);
         const floorContentX = buildingX + config.floorPadding;
         const floorContentY = floorY + config.floorPadding;
-        const floorContentWidth = config.buildingWidth - 2 * config.floorPadding;
+        const floorContentWidth = span.width - 2 * config.floorPadding;
         const floorContentHeight = config.floorHeight - 2 * config.floorPadding;
 
         // 1) Trunk valves on this floor: floor-only valves (all gases)
@@ -350,11 +473,14 @@ function calculateAutoLayoutPositions(
 
         const zoneCount = zonesArray.length;
         if (zoneCount > 0) {
+          const branchOffset = config.branchOffsetX ?? 0;
+          const branchContentX = floorContentX + branchOffset;
+          const branchContentWidth = Math.max(1, floorContentWidth - branchOffset);
           const zoneGaps = Math.max(0, zoneCount - 1) * config.zoneSpacing;
-          const availableWidth = floorContentWidth - zoneGaps;
-          const zoneWidth = Math.floor(availableWidth / Math.max(zoneCount, 1));
-
-          let currentX = floorContentX;
+          const distributableWidth = Math.max(branchContentWidth - zoneGaps, zoneCount * config.zoneMinWidth);
+          const zoneWidth = Math.max(config.zoneMinWidth, Math.floor(distributableWidth / Math.max(zoneCount, 1)));
+          const totalWidthUsed = zoneCount * zoneWidth + zoneGaps;
+          let currentX = branchContentX + Math.max(0, (branchContentWidth - totalWidthUsed) / 2);
 
           zonesArray.forEach(([zoneId, zoneGasMap]) => {
             const zoneValves: Node[] = [];
@@ -369,7 +495,7 @@ function calculateAutoLayoutPositions(
             if (zoneValves.length > 0) {
               const totalHeight = (zoneValves.length - 1) * config.valveSpacing;
               const baseY = floorContentY + (floorContentHeight - totalHeight) / 2;
-              const centerX = currentX + zoneWidth / 2 + (config.branchOffsetX ?? 0) / 2;
+              const centerX = currentX + zoneWidth / 2;
 
               zoneValves.forEach((node, index) => {
                 result[node.id] = {
@@ -393,8 +519,7 @@ function calculateAutoLayoutPositions(
         });
 
         if (buildingValves.length > 0) {
-          const buildingOnlyY =
-            config.startY + uniqueFloorNumbers.length * (config.floorHeight + config.floorSpacing) + 20;
+          const buildingOnlyY = gridBottomY + config.floorSpacing + 20;
 
           buildingValves.forEach((node, index) => {
             result[node.id] = {
@@ -406,32 +531,7 @@ function calculateAutoLayoutPositions(
       }
     });
 
-    // Site-level nodes: positioned to the left of the building grid (simple vertical stack)
-    if (siteNodes.length > 0) {
-      const orderedValves: Node[] = [];
-      const sortedGases = Array.from(siteGasMap.entries()).sort(([a], [b]) => {
-        const aOrder = GAS_ORDER[a] ?? 999;
-        const bOrder = GAS_ORDER[b] ?? 999;
-        return aOrder - bOrder;
-      });
-
-      sortedGases.forEach(([, valvesInGas]) => {
-        valvesInGas.forEach((valve) => orderedValves.push(valve));
-      });
-
-      if (orderedValves.length > 0) {
-        const baseX = config.startX - 150;
-        const baseY = config.startY - 100;
-
-        orderedValves.forEach((valve, index) => {
-          result[valve.id] = {
-            x: baseX,
-            y: baseY + index * config.valveSpacing,
-          };
-        });
-      }
-    }
-
+    layoutSiteNodes();
     return result;
   }
 
@@ -518,8 +618,9 @@ function calculateAutoLayoutPositions(
   };
 
   // Create building columns with proper spacing
-  sortedBuildingIds.forEach((buildingId, buildingIndex) => {
-    const buildingX = config.startX + buildingIndex * (config.buildingWidth + config.buildingSpacing);
+  sortedBuildingIds.forEach((buildingId) => {
+    const span = buildingSpanMap.get(buildingId) || { width: config.buildingWidth, offsetX: 0 };
+    const buildingX = config.startX + span.offsetX;
 
     const floorsInBuilding = buildingFloors.get(buildingId) || new Map();
 
@@ -547,16 +648,17 @@ function calculateAutoLayoutPositions(
         // Floor content area (with padding)
         const floorContentX = buildingX + config.floorPadding;
         const floorContentY = floorY + config.floorPadding;
-        const floorContentWidth = config.buildingWidth - 2 * config.floorPadding;
+        const floorContentWidth = span.width - 2 * config.floorPadding;
         const floorContentHeight = config.floorHeight - 2 * config.floorPadding;
 
         // Calculate zone dimensions to fit within floor
         const zoneGaps = Math.max(0, totalZones - 1) * config.zoneSpacing;
-        const availableWidth = floorContentWidth - zoneGaps;
-        const zoneWidth = Math.floor(availableWidth / totalZones);
-        
-        // Start zones from left edge of floor content area
-        let currentX = floorContentX;
+        const distributableWidth = Math.max(floorContentWidth - zoneGaps, totalZones * config.zoneMinWidth);
+        const zoneWidth = Math.max(config.zoneMinWidth, Math.floor(distributableWidth / Math.max(totalZones, 1)));
+        const totalWidthUsed = totalZones * zoneWidth + zoneGaps;
+
+        // Start zones centered inside floor content area
+        let currentX = floorContentX + Math.max(0, (floorContentWidth - totalWidthUsed) / 2);
 
         // Layout floor-only valves first if present
         if (hasFloorOnly) {
@@ -572,7 +674,7 @@ function calculateAutoLayoutPositions(
         }
 
         // Layout each zone
-        zones.forEach(([zoneId, zoneGasMap], idx) => {
+        zones.forEach(([zoneId, zoneGasMap]) => {
           layoutValvesInColumns(
             zoneGasMap,
             currentX,
@@ -583,39 +685,29 @@ function calculateAutoLayoutPositions(
           );
           currentX += zoneWidth + config.zoneSpacing;
         });
-    }
-  });
+      }
+    });
 
   // Building-only valves: below all floors for this building
   const buildingGasMap = buildingOnlyMap.get(buildingId);
   if (buildingGasMap && buildingGasMap.size > 0) {
-    const buildingOnlyY = config.startY + uniqueFloorNumbers.length * (config.floorHeight + config.floorSpacing) + 20;
+    const buildingOnlyY = gridBottomY + config.floorSpacing + 20;
     const buildingOnlyHeight = 100;
     // Layout valves
     layoutValvesInColumns(
       buildingGasMap,
       buildingX,
       buildingOnlyY,
-      config.buildingWidth,
+      span.width,
       buildingOnlyHeight,
       'building'
     );
   }
 });
 
-// Site-level nodes: positioned to the left of the building grid
-if (siteNodes.length > 0) {
-  // Layout site-level nodes in top-left corner
-  layoutValvesVertically(
-    siteGasMap,
-    config.startX - 150,
-    config.startY - 100,
-    120,
-    80
-  );
-}
+  layoutSiteNodes();
 
-return result;
+  return result;
 }
 
 /**

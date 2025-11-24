@@ -534,6 +534,11 @@ export function EquipmentWizardDialog({ open, mode, siteId, onOpenChange, siteLa
               onChange={setGeoState}
               siteLatitude={siteLatitude}
               siteLongitude={siteLongitude}
+              siteId={siteId}
+              buildingId={basicInfo.buildingId}
+              floorId={basicInfo.floorId}
+              nodeId={mode === "edit" && node ? node.id : null}
+              gasType={basicInfo.gasType ?? null}
             />
           </TabsContent>
 
