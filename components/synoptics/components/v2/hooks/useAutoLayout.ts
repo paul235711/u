@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 interface Node {
   id: string;
   nodeType: string;
+  name?: string;
   buildingId?: string | null;
   floorId?: string | null;
   zoneId?: string | null;
@@ -219,7 +220,36 @@ function calculateAutoLayoutPositions(
     Map<string, { floorOnly: Map<string, Node[]>; zones: Map<string, Map<string, Node[]>> }>
   >();
 
-  safeNodes.forEach((node) => {
+  const getNodeLabel = (node: Node) => {
+    const explicitLabel = typeof node.data?.label === 'string' ? (node.data.label as string) : undefined;
+    return (
+      explicitLabel ||
+      node.name ||
+      node.zoneName ||
+      node.buildingName ||
+      node.id
+    );
+  };
+
+  const gasRank = (gas?: string | null) => GAS_ORDER[gas ?? 'default'] ?? 999;
+
+  const compareNodes = (a: Node, b: Node) => {
+    const gasDiff = gasRank(a.gasType) - gasRank(b.gasType);
+    if (gasDiff !== 0) return gasDiff;
+    const labelA = getNodeLabel(a).toLowerCase();
+    const labelB = getNodeLabel(b).toLowerCase();
+    if (labelA !== labelB) return labelA.localeCompare(labelB);
+    return a.id.localeCompare(b.id);
+  };
+
+  const sortGasBuckets = (map?: Map<string, Node[]>) => {
+    if (!map) return;
+    map.forEach((nodes) => nodes.sort(compareNodes));
+  };
+
+  const safeNodesSorted = [...safeNodes].sort(compareNodes);
+
+  safeNodesSorted.forEach((node) => {
     const gasKey = node.gasType || 'default';
 
     // Site-level nodes: no building
@@ -279,6 +309,15 @@ function calculateAutoLayoutPositions(
   const buildingIdsSet = new Set<string>();
   buildingFloors.forEach((_floors, bId) => buildingIdsSet.add(bId));
   buildingOnlyMap.forEach((_gas, bId) => buildingIdsSet.add(bId));
+
+  // Apply deterministic ordering across all node buckets
+  buildingOnlyMap.forEach((gasMap) => sortGasBuckets(gasMap));
+  buildingFloors.forEach((floorsMap) => {
+    floorsMap.forEach((entry) => {
+      sortGasBuckets(entry.floorOnly);
+      entry.zones.forEach((zoneGasMap) => sortGasBuckets(zoneGasMap));
+    });
+  });
 
   const sortedBuildingIds = Array.from(buildingIdsSet).sort((aId, bId) => {
     const aBuilding = buildingMap.get(aId);
@@ -372,15 +411,15 @@ function calculateAutoLayoutPositions(
     const rows: SiteRow[] = [];
 
     gasKeys.forEach((gas) => {
-      const sources = sourcesByGas.get(gas) ?? [];
-      const cutoffs = cutoffByGas.get(gas) ?? [];
+      const sources = (sourcesByGas.get(gas) ?? []).slice().sort(compareNodes);
+      const cutoffs = (cutoffByGas.get(gas) ?? []).slice().sort(compareNodes);
       const maxLen = Math.max(sources.length, cutoffs.length);
       for (let i = 0; i < maxLen; i++) {
         rows.push({ left: sources[i], right: cutoffs[i] });
       }
     });
 
-    miscellaneous.forEach((node) => rows.push({ left: node }));
+    miscellaneous.sort(compareNodes).forEach((node) => rows.push({ left: node }));
 
     if (rows.length === 0) {
       siteNodes.forEach((node, index) => {
