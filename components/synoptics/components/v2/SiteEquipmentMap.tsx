@@ -18,6 +18,7 @@ const DEFAULT_CENTER: [number, number] = [2.3522, 48.8566];
 interface FloorSummary {
   id: string;
   name: string;
+  floorNumber?: number | null;
 }
 
 interface BuildingSummary {
@@ -107,6 +108,10 @@ interface SiteEquipmentState {
   layouts: any[];
   buildingMap: Record<string, BuildingSummary>;
   floorsForSelectedBuilding: FloorSummary[];
+  // Map-specific floor selection
+  selectedMapFloorKey: string;
+  setSelectedMapFloorKey: (key: string) => void;
+  mapFloorLevels: { key: string; label: string; level: number; floorIds: string[] }[];
   featureCollection: GeoJSON.FeatureCollection;
   mapCenter: [number, number];
   buildings: BuildingSummary[];
@@ -178,6 +183,8 @@ function useSiteEquipmentState({
   const [selectedBuildingId, setSelectedBuildingId] = useState('all');
   const [selectedFloorId, setSelectedFloorId] = useState('all');
   const [selectedGasTypes, setSelectedGasTypes] = useState<string[]>([]);
+  // Map-specific floor selection ("Site" + per-level)
+  const [selectedMapFloorKey, setSelectedMapFloorKey] = useState<string>('site');
 
   // Edit dialog state
   const [selectedEquipment, setSelectedEquipment] = useState<EquipmentFeature | null>(null);
@@ -324,6 +331,45 @@ function useSiteEquipmentState({
     return buildingMap[selectedBuildingId]?.floors ?? [];
   }, [selectedBuildingId, buildingMap]);
 
+  const mapFloorLevels = useMemo(() => {
+    const levelMap = new Map<number, { key: string; label: string; level: number; floorIds: string[] }>();
+
+    buildings.forEach((building) => {
+      building.floors?.forEach((floor) => {
+        const level = typeof floor.floorNumber === 'number' ? floor.floorNumber : undefined;
+        if (level === undefined || Number.isNaN(level)) return;
+
+        const existing = levelMap.get(level);
+        if (existing) {
+          existing.floorIds.push(floor.id);
+        } else {
+          let label: string;
+          if (level > 0) {
+            label = String(level);
+          } else if (level === 0) {
+            label = 'RDC';
+          } else {
+            label = `SS-${Math.abs(level)}`;
+          }
+
+          // Fallback to the floor's name if for some reason label is empty
+          if (!label && floor.name) {
+            label = floor.name;
+          }
+
+          levelMap.set(level, {
+            key: String(level),
+            label,
+            level,
+            floorIds: [floor.id],
+          });
+        }
+      });
+    });
+
+    return Array.from(levelMap.values()).sort((a, b) => b.level - a.level);
+  }, [buildings]);
+
   const selectedEquipmentId = selectedEquipment?.id ?? null;
 
   const downstreamNodeIds = useDownstreamNodes(connections, selectedEquipmentId);
@@ -347,11 +393,42 @@ function useSiteEquipmentState({
     });
   }, [equipment, selectedTypes, selectedBuildingId, selectedFloorId, selectedGasTypes]);
 
+  // Map-specific filtered equipment, using "site" and floor-level semantics across all buildings
+  const mapFilteredEquipment = useMemo(() => {
+    return equipment.filter((item) => {
+      // Type filter
+      if (selectedTypes.length > 0 && !selectedTypes.includes(item.nodeType)) return false;
+
+      // Building filter (still respected on the map)
+      if (selectedBuildingId !== 'all' && item.buildingId !== selectedBuildingId) return false;
+
+      // Gas filter
+      if (selectedGasTypes.length > 0 && !selectedGasTypes.includes(item.gasType)) return false;
+
+      // Map floor selection
+      if (selectedMapFloorKey === 'all') {
+        return true;
+      }
+
+      if (selectedMapFloorKey === 'site') {
+        return !item.floorId || !item.zoneId;
+      }
+
+      const levelEntry = mapFloorLevels.find((lvl) => lvl.key === selectedMapFloorKey);
+      if (!levelEntry) return true;
+
+      if (!item.floorId) return false;
+
+      const floorIdsForLevel = new Set(levelEntry.floorIds);
+      return floorIdsForLevel.has(item.floorId);
+    });
+  }, [equipment, selectedTypes, selectedBuildingId, selectedGasTypes, selectedMapFloorKey, mapFloorLevels]);
+
   // Prepare GeoJSON for map
   const featureCollection = useMemo(
     () => ({
       type: 'FeatureCollection' as const,
-      features: filteredEquipment
+      features: mapFilteredEquipment
         .filter((item) => item.coordinates !== null)
         .map((item) => {
           let highlightType: 'selected' | 'downstream' | 'default' = 'default';
@@ -385,7 +462,7 @@ function useSiteEquipmentState({
           };
         }),
     }),
-    [filteredEquipment, buildingMap, selectedEquipmentId, downstreamNodeIds]
+    [mapFilteredEquipment, buildingMap, selectedEquipmentId, downstreamNodeIds]
   );
 
   const mapCenter = useMemo((): [number, number] => {
@@ -466,6 +543,9 @@ function useSiteEquipmentState({
     layouts,
     buildingMap,
     floorsForSelectedBuilding,
+    selectedMapFloorKey,
+    setSelectedMapFloorKey,
+    mapFloorLevels,
     featureCollection,
     mapCenter,
     buildings,
@@ -590,6 +670,9 @@ export function SiteEquipmentMapTabContent() {
     filteredEquipment,
     equipment,
     equipmentWithCoords,
+    selectedMapFloorKey,
+    setSelectedMapFloorKey,
+    mapFloorLevels,
     featureCollection,
     mapCenter,
     selectedEquipment,
@@ -612,24 +695,19 @@ export function SiteEquipmentMapTabContent() {
     );
   }
 
-  return (
-    <div className="relative w-full space-y-4">
-      <EquipmentFilters
-        selectedTypes={selectedTypes}
-        onTypeToggle={toggleType}
-        selectedBuildingId={selectedBuildingId}
-        onBuildingChange={handleBuildingChange}
-        selectedFloorId={selectedFloorId}
-        onFloorChange={setSelectedFloorId}
-        selectedGasTypes={selectedGasTypes}
-        onGasTypeToggle={toggleGasType}
-        buildings={buildings}
-        floorsForSelectedBuilding={floorsForSelectedBuilding}
-        filteredCount={filteredEquipment.length}
-        totalCount={equipment.length}
-        onReset={resetFilters}
-      />
+  const hasSource = equipment.some((e) => e.nodeType === 'source');
+  const hasValve = equipment.some((e) => e.nodeType === 'valve');
+  const hasFitting = equipment.some((e) => e.nodeType === 'fitting');
+  const availableGasTypes = Array.from(
+    new Set(
+      equipment
+        .map((e) => e.gasType)
+        .filter((g) => typeof g === 'string' && g !== 'unknown')
+    )
+  );
 
+  return (
+    <div className="relative w-full">
       <div className="flex w-full">
         <div className="flex-1 min-w-0">
           <EquipmentMapView
@@ -647,6 +725,17 @@ export function SiteEquipmentMapTabContent() {
                 setSelectedEquipment(found);
               }
             }}
+            selectedFloorId={selectedMapFloorKey}
+            floorsForSelectedBuilding={mapFloorLevels.map((lvl) => ({ id: lvl.key, name: lvl.label }))}
+            onFloorChange={setSelectedMapFloorKey}
+            selectedGasTypes={selectedGasTypes}
+            onGasTypeToggle={toggleGasType}
+            availableGasTypes={availableGasTypes}
+            selectedTypes={selectedTypes}
+            onTypeToggle={toggleType as any}
+            hasSource={hasSource}
+            hasValve={hasValve}
+            hasFitting={hasFitting}
           />
         </div>
       </div>
