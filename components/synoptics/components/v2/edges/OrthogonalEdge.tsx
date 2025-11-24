@@ -28,6 +28,9 @@ export function OrthogonalEdge({
   const edgeData = data as OrthogonalEdgeData;
   
   // Calculate orthogonal path
+  const elbowOffset = 30;
+  const minGap = 30;
+
   const createOrthogonalPath = () => {
     const points: string[] = [];
     const dx = targetX - sourceX;
@@ -38,31 +41,59 @@ export function OrthogonalEdge({
     
     // Determine routing strategy based on positions
     if (sourcePosition === Position.Right && targetPosition === Position.Left) {
-      // Horizontal flow (most common)
-      const midX = sourceX + dx / 2;
-      points.push(`L ${midX} ${sourceY}`); // Move horizontally to midpoint
-      points.push(`L ${midX} ${targetY}`); // Move vertically
-      points.push(`L ${targetX} ${targetY}`); // Complete horizontal to target
-      
+      // Horizontal flow (most common): maintain fixed offsets near both ends
+      const sourceElbowX = sourceX + elbowOffset;
+      const targetElbowX = targetX - elbowOffset;
+      if (targetElbowX - sourceElbowX <= minGap) {
+        const midX = sourceX + dx / 2;
+        points.push(`L ${midX} ${sourceY}`);
+        points.push(`L ${midX} ${targetY}`);
+      } else {
+        points.push(`L ${sourceElbowX} ${sourceY}`);
+        points.push(`L ${sourceElbowX} ${targetY}`);
+        points.push(`L ${targetElbowX} ${targetY}`);
+      }
+      points.push(`L ${targetX} ${targetY}`);
+
     } else if (sourcePosition === Position.Bottom && targetPosition === Position.Top) {
-      // Vertical flow
-      const midY = sourceY + dy / 2;
-      points.push(`L ${sourceX} ${midY}`); // Move vertically to midpoint
-      points.push(`L ${targetX} ${midY}`); // Move horizontally
+      // Vertical flow: straight run then elbow near target
+      const elbowY = targetY + elbowOffset;
+      if (sourceY - elbowY <= minGap) {
+        const midY = sourceY + dy / 2;
+        points.push(`L ${sourceX} ${midY}`); // Move vertically to midpoint
+        points.push(`L ${targetX} ${midY}`); // Move horizontally
+      } else {
+        points.push(`L ${sourceX} ${elbowY}`);
+        points.push(`L ${targetX} ${elbowY}`);
+      }
       points.push(`L ${targetX} ${targetY}`); // Complete vertical to target
       
     } else if (sourcePosition === Position.Left && targetPosition === Position.Right) {
-      // Reverse horizontal flow
-      const midX = sourceX + dx / 2;
-      points.push(`L ${midX} ${sourceY}`);
-      points.push(`L ${midX} ${targetY}`);
+      // Reverse horizontal flow: maintain fixed offsets
+      const sourceElbowX = sourceX - elbowOffset;
+      const targetElbowX = targetX + elbowOffset;
+      if (sourceElbowX - targetElbowX >= -minGap) {
+        const midX = sourceX + dx / 2;
+        points.push(`L ${midX} ${sourceY}`);
+        points.push(`L ${midX} ${targetY}`);
+      } else {
+        points.push(`L ${sourceElbowX} ${sourceY}`);
+        points.push(`L ${sourceElbowX} ${targetY}`);
+        points.push(`L ${targetElbowX} ${targetY}`);
+      }
       points.push(`L ${targetX} ${targetY}`);
-      
+
     } else if (sourcePosition === Position.Top && targetPosition === Position.Bottom) {
       // Reverse vertical flow
-      const midY = sourceY + dy / 2;
-      points.push(`L ${sourceX} ${midY}`);
-      points.push(`L ${targetX} ${midY}`);
+      const elbowY = targetY - elbowOffset;
+      if (elbowY - sourceY <= minGap) {
+        const midY = sourceY + dy / 2;
+        points.push(`L ${sourceX} ${midY}`);
+        points.push(`L ${targetX} ${midY}`);
+      } else {
+        points.push(`L ${sourceX} ${elbowY}`);
+        points.push(`L ${targetX} ${elbowY}`);
+      }
       points.push(`L ${targetX} ${targetY}`);
       
     } else if (sourcePosition === Position.Right && targetPosition === Position.Top) {
