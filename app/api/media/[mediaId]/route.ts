@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUser } from '@/lib/db/queries';
-import { stat, readFile, unlink } from 'fs/promises';
-import { join } from 'path';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 
 export async function GET(
   request: NextRequest,
@@ -32,32 +31,19 @@ export async function GET(
     // This is a basic check - you might want to add more sophisticated permissions
     // For now, we assume if the user is logged in and the media exists, they can access it
 
-    const filePath = join(process.cwd(), 'public', media.storagePath);
+    const bucket = process.env.SUPABASE_STORAGE_BUCKET!;
 
-    try {
-      // Check if file exists and get stats
-      const fileStat = await stat(filePath);
+    // Generate a signed URL from Supabase Storage and redirect the client to it
+    const { data, error } = await supabaseAdmin.storage
+      .from(bucket)
+      .createSignedUrl(media.storagePath, 60 * 60);
 
-      // Read file
-      const fileBuffer = await readFile(filePath);
-
-      // Return file with appropriate headers
-      const response = new NextResponse(fileBuffer, {
-        status: 200,
-        headers: {
-          'Content-Type': media.mimeType,
-          'Content-Length': fileStat.size.toString(),
-          'Cache-Control': 'private, max-age=3600', // Cache for 1 hour, private
-          'Content-Disposition': `inline; filename="${media.fileName}"`,
-        },
-      });
-
-      return response;
-
-    } catch (fileError) {
-      console.error('File access error:', fileError);
+    if (error || !data?.signedUrl) {
+      console.error('Supabase signed URL error:', error);
       return NextResponse.json({ error: 'File not accessible' }, { status: 404 });
     }
+
+    return NextResponse.redirect(data.signedUrl, 302);
 
   } catch (error) {
     console.error('Media serving error:', error);
@@ -91,13 +77,16 @@ export async function DELETE(
       return NextResponse.json({ error: 'Media not found' }, { status: 404 });
     }
 
-    const filePath = join(process.cwd(), 'public', media.storagePath);
+    const bucket = process.env.SUPABASE_STORAGE_BUCKET!;
 
-    try {
-      await unlink(filePath);
-    } catch (fileError) {
-      console.warn('Failed to delete media file from disk:', fileError);
-      // Continue to delete DB record even if file is missing
+    // Attempt to delete file from Supabase Storage (non-fatal if it fails)
+    const { error: removeError } = await supabaseAdmin.storage
+      .from(bucket)
+      .remove([media.storagePath]);
+
+    if (removeError) {
+      console.warn('Failed to delete media file from Supabase:', removeError);
+      // Continue to delete DB record even if storage object is missing
     }
 
     await deleteMedia(mediaId);

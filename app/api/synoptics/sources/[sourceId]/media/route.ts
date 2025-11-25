@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUser } from '@/lib/db/queries';
 import { createMedia, getMediaByElement } from '@/lib/db/synoptics-queries';
-import { writeFile, mkdir } from 'fs/promises';
-import { join } from 'path';
 import { randomUUID } from 'crypto';
 import sharp from 'sharp';
 import { fileTypeFromBuffer } from 'file-type';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 
 export async function GET(
   request: NextRequest,
@@ -64,7 +63,7 @@ export async function POST(
 
     // Convert to buffer for validation
     const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
+    const buffer = Buffer.from(bytes as ArrayBuffer);
 
     // Security: File type validation using magic bytes
     const detectedType = await fileTypeFromBuffer(buffer);
@@ -117,20 +116,28 @@ export async function POST(
       finalFileName = `${randomUUID()}.${file.name.split('.').pop()}`;
     }
 
-    // Create uploads directory if it doesn't exist
-    const uploadsDir = join(process.cwd(), 'public', 'uploads', 'media');
-    await mkdir(uploadsDir, { recursive: true });
+    // Upload file to Supabase Storage
+    const bucket = process.env.SUPABASE_STORAGE_BUCKET!;
+    const objectKey = `sources/${sourceId}/${finalFileName}`;
 
-    // Save processed file to disk
-    const filePath = join(uploadsDir, finalFileName);
-    await writeFile(filePath, processedBuffer);
+    const { error: uploadError } = await supabaseAdmin.storage
+      .from(bucket)
+      .upload(objectKey, processedBuffer, {
+        contentType: finalMimeType,
+        upsert: false,
+      });
+
+    if (uploadError) {
+      console.error('Supabase upload error (source media):', uploadError);
+      return NextResponse.json({ error: 'Error uploading media' }, { status: 500 });
+    }
 
     // Create database entry with processed file info
     const mediaData = {
       siteId: '', // We'll need to get this from the source
       elementId: sourceId,
       elementType: elementType || 'source',
-      storagePath: `/uploads/media/${finalFileName}`,
+      storagePath: objectKey,
       fileName: file.name,
       mimeType: finalMimeType,
     };
